@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Operational BGP incident analysis using CAIDA BGPStream data.">
+  <title>BGP Incident Analyzer</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to analysis</a>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark" aria-hidden="true">B</span><div><strong>BGP Incident Analyzer</strong><span>Routing evidence workspace</span></div></div>
+    <div class="source-state"><span class="pulse" aria-hidden="true"></span><span>CAIDA BGPStream ready</span></div>
+  </header>
+
+  <main id="main">
+    <section class="query-panel" aria-labelledby="query-title">
+      <div class="query-intro">
+        <p class="eyebrow">POST-INCIDENT ANALYSIS</p>
+        <h1 id="query-title">Turn BGP updates into incident evidence.</h1>
+        <p>Inspect announcements, withdrawals, origin changes and AS-path visibility across RIPE RIS and Route Views.</p>
+      </div>
+      <form id="analysis-form">
+        <div class="field resource-field">
+          <label for="resource">IP address or prefix</label>
+          <input id="resource" name="resource" value="192.0.2.10" spellcheck="false" autocomplete="off" required>
+          <span class="hint">IPv4, IPv6 or CIDR prefix</span>
+        </div>
+        <div class="field">
+          <label for="start">Start time <span>UTC</span></label>
+          <input id="start" name="start" type="datetime-local" required>
+        </div>
+        <div class="field">
+          <label for="end">End time <span>UTC</span></label>
+          <input id="end" name="end" type="datetime-local" required>
+        </div>
+        <fieldset class="field sources">
+          <legend>Data projects</legend>
+          <label><input type="checkbox" name="project" value="ris" checked> RIPE RIS</label>
+          <label><input type="checkbox" name="project" value="routeviews" checked> Route Views</label>
+        </fieldset>
+        <div class="field">
+          <label for="mode">Query mode</label>
+          <select id="mode" name="mode"><option value="auto">Auto fallback</option><option value="live">Live only</option><option value="demo">Demonstration</option></select>
+        </div>
+        <button class="primary" type="submit"><span>Analyze routing</span><span aria-hidden="true">→</span></button>
+      </form>
+      <div id="form-error" class="form-error" role="alert" hidden></div>
+    </section>
+
+    <section id="loading" class="loading" aria-live="polite" hidden><span class="spinner" aria-hidden="true"></span><div><strong>Querying route collectors</strong><span>This can take up to 90 seconds for a large window.</span></div></section>
+
+    <section id="results" class="results" aria-labelledby="result-title" hidden>
+      <div class="result-head">
+        <div><p class="eyebrow">ANALYSIS RESULT</p><h2 id="result-title">Prefix <code id="prefix-label"></code></h2><p id="source-note"></p></div>
+        <div class="actions"><button id="copy-summary" class="secondary" type="button">Copy summary</button><button id="export-json" class="secondary" type="button">Export JSON</button></div>
+      </div>
+
+      <article id="finding" class="finding" aria-live="polite"><div class="status-icon" aria-hidden="true">!</div><div><div class="finding-label"><span id="severity-label"></span><span id="mode-badge"></span></div><h3>Primary finding</h3><p id="finding-text"></p></div></article>
+
+      <div class="metrics" aria-label="Analysis metrics">
+        <article><span>Observed updates</span><strong id="m-events">0</strong><small>Matching BGP events</small></article>
+        <article><span>Withdrawals</span><strong id="m-withdrawals">0</strong><small>Reachability removals</small></article>
+        <article><span>Announcements</span><strong id="m-announcements">0</strong><small>Reachability advertisements</small></article>
+        <article><span>Collectors</span><strong id="m-collectors">0</strong><small>Independent vantage points</small></article>
+        <article><span>Origin ASNs</span><strong id="m-origins">0</strong><small>Distinct origins observed</small></article>
+      </div>
+
+      <div class="analysis-grid">
+        <article class="panel timeline-panel"><div class="panel-head"><div><span class="panel-kicker">EVENT DISTRIBUTION</span><h3>Routing timeline</h3></div><div class="legend"><span><i class="a"></i>Announcements</span><span><i class="w"></i>Withdrawals</span></div></div><div id="timeline-chart" class="chart" role="img" aria-label="BGP announcements and withdrawals over time"></div></article>
+        <article class="panel path-panel"><div class="panel-head"><div><span class="panel-kicker">PATH VISIBILITY</span><h3>Most observed AS paths</h3></div></div><ol id="path-list" class="path-list"></ol></article>
+      </div>
+
+      <article class="panel event-panel"><div class="panel-head"><div><span class="panel-kicker">RAW EVIDENCE</span><h3>Event log</h3></div><label class="filter">Filter <select id="event-filter"><option value="all">All events</option><option value="A">Announcements</option><option value="W">Withdrawals</option></select></label></div><div class="table-wrap"><table><thead><tr><th>Time (UTC)</th><th>Event</th><th>Collector</th><th>Peer ASN</th><th>Origin</th><th>AS path</th></tr></thead><tbody id="event-body"></tbody></table></div><p id="empty-events" class="empty" hidden>No events match this filter.</p></article>
+    </section>
+  </main>
+  <footer><span>BGP Incident Analyzer v1.0</span><span>Control-plane evidence only. Correlate with MTR, packet capture and provider telemetry.</span></footer>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>
