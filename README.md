@@ -4,6 +4,34 @@ An operational web interface for network and security teams investigating BGP an
 
 > **Project status:** Experimental proof of concept. Suitable for controlled internal evaluation, not direct Internet exposure.
 
+## Objective and success criteria
+
+The POC tests whether public BGP observations can be turned into a concise, repeatable incident record without requiring analysts to manually download and parse collector files.
+
+The experiment is successful when an operator can:
+
+- submit a valid IP address or prefix and bounded UTC window;
+- obtain matching announcements, withdrawals, origin ASNs and AS paths;
+- identify whether live data or demonstration fallback produced the result;
+- export a readable summary and complete JSON evidence;
+- reproduce the API tests and container deployment from this repository.
+
+Assumptions: outbound access to RIPEstat and CAIDA data sources is available, public collectors observe the relevant prefix, and control-plane evidence is correlated with operational telemetry.
+
+**Decision date:** Review production suitability by `01/12/2026`. Until then, the repository remains an experimental POC.
+
+## Architecture
+
+![BGP Incident Analyzer architecture](docs/images/architecture.png)
+
+The service resolves a resource, queries CAIDA BGPStream, validates and summarizes the returned control-plane events, and presents the evidence in a browser workspace. See the [architecture and security boundaries](docs/architecture.md) or open the [scalable SVG diagram](docs/images/architecture.svg).
+
+## Analysis workflow
+
+![BGP incident analysis workflow](docs/images/analysis-flow.png)
+
+The workflow keeps the incident window in UTC and preserves a visible distinction between live and demonstration data. Open the [scalable SVG workflow](docs/images/analysis-flow.svg).
+
 ## Quick start
 
 Requirements: Docker Engine with the Compose plugin and outbound HTTPS access.
@@ -60,9 +88,17 @@ curl -X POST http://localhost:8080/api/analyze \
 pytest -q
 python -m compileall -q app
 node --check app/static/app.js
+python scripts/validate_repository.py
 ```
 
 A successful test run returns three passing API tests. For deployment validation, confirm that `docker compose up -d --build` completes and that `GET /api/health` returns `{"status":"ok"}`.
+
+SVG files in `docs/images/` are the editable sources. PNG files are generated from them for consistent GitHub rendering:
+
+```bash
+npm install
+npm run render:diagrams
+```
 
 ## Maintenance
 

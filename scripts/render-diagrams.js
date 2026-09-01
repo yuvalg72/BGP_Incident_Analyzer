@@ -1,0 +1,25 @@
+const fs = require("node:fs");
+const path = require("node:path");
+const sharp = require("sharp");
+
+const root = path.resolve(__dirname, "..");
+const sourceDir = path.join(root, "docs", "images");
+const outputDir = process.argv[2] ? path.resolve(process.argv[2]) : sourceDir;
+const diagrams = ["architecture", "analysis-flow"];
+
+fs.mkdirSync(outputDir, { recursive: true });
+
+Promise.all(diagrams.map(async (name) => {
+  const source = path.join(sourceDir, `${name}.svg`);
+  const output = path.join(outputDir, `${name}.png`);
+  await sharp(source, { density: 144 })
+    .flatten({ background: "#ffffff" })
+    .resize({ width: 1400, withoutEnlargement: false })
+    .png({ compressionLevel: 9, adaptiveFiltering: false })
+    .toFile(output);
+  process.stdout.write(`Rendered ${path.relative(root, output)}\n`);
+})).catch((error) => {
+  process.stderr.write(`${error.stack || error}\n`);
+  process.exitCode = 1;
+});
+

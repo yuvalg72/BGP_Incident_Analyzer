@@ -23,10 +23,25 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
       - name: Install dependencies
         run: pip install -r requirements.txt
+      - name: Install asset tooling
+        run: npm install --ignore-scripts --no-audit --no-fund
       - name: Compile Python
         run: python -m compileall -q app
       - name: Run tests
         run: pytest -q
-
+      - name: Check JavaScript syntax
+        run: npm run check:js
+      - name: Validate repository structure and diagrams
+        run: python scripts/validate_repository.py
+      - name: Verify PNG renders match SVG sources
+        run: |
+          mkdir -p /tmp/bgp-diagrams
+          node scripts/render-diagrams.js /tmp/bgp-diagrams
+          cmp docs/images/architecture.png /tmp/bgp-diagrams/architecture.png
+          cmp docs/images/analysis-flow.png /tmp/bgp-diagrams/analysis-flow.png
