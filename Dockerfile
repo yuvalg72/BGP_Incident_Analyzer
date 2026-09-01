@@ -1,11 +1,8 @@
-FROM ubuntu:24.04
+FROM caida/bgpstream:2.3.0@sha256:d808116911c107926451f882295d85c80940285791ff38c7e6999976d355e3d4
 
 ENV DEBIAN_FRONTEND=noninteractive PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates gnupg lsb-release python3 python3-pip python3-venv && \
-    curl -1sLf 'https://dl.cloudsmith.io/public/wand/libwandio/cfg/setup/bash.deb.sh' | bash && \
-    curl -fsSL https://pkg.caida.org/os/ubuntu/keyring.gpg -o /etc/apt/trusted.gpg.d/caida.gpg && \
-    echo "deb https://pkg.caida.org/os/ubuntu noble main" > /etc/apt/sources.list.d/caida.list && \
-    apt-get update && apt-get install -y --no-install-recommends bgpstream && \
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates curl passwd python3-pip python3-venv && \
     useradd --create-home --uid 10001 appuser && \
     rm -rf /var/lib/apt/lists/*
 

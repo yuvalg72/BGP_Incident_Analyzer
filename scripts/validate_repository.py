@@ -7,6 +7,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 IMAGES = ROOT / "docs" / "images"
 EXPECTED_PORT = "17991"
+EXPECTED_BGPSTREAM_BASE = (
+    "FROM caida/bgpstream:2.3.0@sha256:"
+    "d808116911c107926451f882295d85c80940285791ff38c7e6999976d355e3d4"
+)
 REQUIRED = [
     "README.md",
     "SECURITY.md",
@@ -16,6 +20,7 @@ REQUIRED = [
     ".gitattributes",
     ".editorconfig",
     ".github/dependabot.yml",
+    ".github/pull_request_template.md",
     ".github/workflows/ci.yml",
     "Dockerfile",
     "docker-compose.yml",
@@ -64,7 +69,12 @@ for path in ["README.md", "Dockerfile", "docker-compose.yml", ".github/workflows
         fail(f"expected port {EXPECTED_PORT} is not documented in {path}")
 
 dockerfile = read("Dockerfile")
-for marker in [f"EXPOSE {EXPECTED_PORT}", "USER appuser", "--uid 10001 appuser"]:
+for marker in [
+    EXPECTED_BGPSTREAM_BASE,
+    f"EXPOSE {EXPECTED_PORT}",
+    "USER appuser",
+    "--uid 10001 appuser",
+]:
     if marker not in dockerfile:
         fail(f"Dockerfile hardening marker missing: {marker}")
 
@@ -126,6 +136,6 @@ for svg in svgs:
 
 print(
     "Repository validation passed: "
-    f"port={EXPECTED_PORT}, 4 CI jobs, {len(requirements)} pinned Python dependencies, "
-    f"{len(svgs)} SVG/PNG pairs"
+    f"port={EXPECTED_PORT}, pinned CAIDA BGPStream 2.3.0 base, 4 CI jobs, "
+    f"{len(requirements)} pinned Python dependencies, {len(svgs)} SVG/PNG pairs"
 )

@@ -26,6 +26,8 @@ Assumptions: outbound access to RIPEstat and CAIDA data sources is available, pu
 
 The service resolves a resource, queries CAIDA BGPStream, validates and summarizes the returned control-plane events, and presents the evidence in a browser workspace. See the [architecture and security boundaries](docs/architecture.md) or open the [scalable SVG diagram](docs/images/architecture.svg).
 
+The application image is layered on CAIDA's official BGPStream 2.3.0 container image. The Dockerfile pins its manifest digest rather than relying on a floating `latest` tag.
+
 ## Analysis workflow
 
 ![BGP incident analysis workflow](docs/images/analysis-flow.png)
@@ -88,6 +90,7 @@ curl -X POST http://localhost:17991/api/analyze \
 - The service has no authentication in this POC. Bind it to a trusted management network or place it behind an authenticated reverse proxy before shared deployment.
 - Query windows are limited to seven days and each live query has a 90-second execution limit.
 - The container runs as unprivileged UID `10001` and is intended to remain read-only except for the Compose `/tmp` tmpfs.
+- The BGPStream base image is pinned by digest. Updating that digest is an explicit dependency-maintenance change and should be validated by the container CI gate.
 
 ## Validation
 
