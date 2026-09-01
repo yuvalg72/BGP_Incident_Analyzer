@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+
+- Changed the default application port from 8080 to 17991, with a configurable host-side Compose port.
+- Hardened the container to run as an unprivileged UID 10001 user.
+- Expanded CI into separate quality, test, container, and dependency-security jobs.
+- Added Docker build, non-root runtime, health endpoint, and API documentation smoke tests.
+- Added Ruff linting and `pip-audit` dependency vulnerability checks.
+- Expanded API and analyzer tests to cover input validation, BGPReader parsing, severity classification, and timeline aggregation.
+- Extended deterministic repository validation to enforce the port, CI job set, pinned dependencies, container hardening, and static UI metadata.
+- Added a pull request template with validation, security, risk, and rollback gates.
+
 ## [0.1.0] - 2026-09-01
 
 ### Added

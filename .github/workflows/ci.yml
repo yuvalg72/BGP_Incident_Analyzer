@@ -5,16 +5,47 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  test:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install Python quality tooling
+        run: python -m pip install ruff==0.12.8
+      - name: Install asset tooling
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Compile Python
+        run: python -m compileall -q app tests scripts
+      - name: Lint Python
+        run: ruff check app tests scripts
+      - name: Check JavaScript syntax
+        run: npm run check:js
+      - name: Validate repository structure and policy
+        run: python scripts/validate_repository.py
+      - name: Verify PNG renders match SVG sources
+        run: |
+          mkdir -p /tmp/bgp-diagrams
+          node scripts/render-diagrams.js /tmp/bgp-diagrams
+          node scripts/compare-diagrams.js /tmp/bgp-diagrams
+
+  tests:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -23,24 +54,52 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-      - name: Install asset tooling
-        run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Compile Python
-        run: python -m compileall -q app
-      - name: Run tests
-        run: pytest -q
-      - name: Check JavaScript syntax
-        run: npm run check:js
-      - name: Validate repository structure and diagrams
-        run: python scripts/validate_repository.py
-      - name: Verify PNG renders match SVG sources
+      - name: Install application dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Run unit and API tests
+        run: pytest -q --disable-warnings --maxfail=1
+
+  container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Compose configuration
+        run: docker compose config -q
+      - name: Build container image
+        run: docker build --pull -t bgp-incident-analyzer-ci .
+      - name: Verify non-root runtime user
+        run: test "$(docker run --rm --entrypoint id bgp-incident-analyzer-ci -u)" = "10001"
+      - name: Start container
+        run: docker run -d --name bgp-ci -p 17991:17991 bgp-incident-analyzer-ci
+      - name: Smoke test health and API documentation
         run: |
-          mkdir -p /tmp/bgp-diagrams
-          node scripts/render-diagrams.js /tmp/bgp-diagrams
-          node scripts/compare-diagrams.js /tmp/bgp-diagrams
+          ready=0
+          for attempt in {1..30}; do
+            if curl -fsS http://127.0.0.1:17991/api/health; then
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+          test "$ready" = "1"
+          curl -fsS http://127.0.0.1:17991/api/docs >/dev/null
+      - name: Container diagnostics
+        if: always()
+        run: |
+          docker logs bgp-ci || true
+          docker rm -f bgp-ci || true
+
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependency auditor
+        run: python -m pip install pip-audit==2.9.0
+      - name: Audit Python dependencies
+        run: pip-audit -r requirements.txt

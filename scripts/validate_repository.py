@@ -1,15 +1,30 @@
 from __future__ import annotations
 
 import struct
-import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 IMAGES = ROOT / "docs" / "images"
+EXPECTED_PORT = "17991"
 REQUIRED = [
-    "README.md", "SECURITY.md", "CHANGELOG.md", ".gitignore",
-    ".gitattributes", ".editorconfig", "Dockerfile", "docker-compose.yml",
+    "README.md",
+    "SECURITY.md",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    ".gitignore",
+    ".gitattributes",
+    ".editorconfig",
+    ".github/dependabot.yml",
+    ".github/workflows/ci.yml",
+    "Dockerfile",
+    "docker-compose.yml",
+    "requirements.txt",
+    "package.json",
+    "package-lock.json",
+    "pytest.ini",
+    "tests/test_app.py",
+    "tests/test_analyzer.py",
 ]
 
 
@@ -18,14 +33,73 @@ def fail(message: str) -> None:
     raise SystemExit(1)
 
 
+def read(path: str) -> str:
+    return (ROOT / path).read_text(encoding="utf-8")
+
+
 for required in REQUIRED:
     if not (ROOT / required).is_file():
         fail(f"missing required file: {required}")
 
-readme = (ROOT / "README.md").read_text(encoding="utf-8")
-for heading in ["Project status", "Quick start", "Architecture", "Success criteria", "Operational boundaries", "Validation", "Maintenance"]:
+readme = read("README.md")
+for heading in [
+    "Project status",
+    "Quick start",
+    "Architecture",
+    "Success criteria",
+    "Operational boundaries",
+    "Validation",
+    "CI/CD",
+    "Maintenance",
+    "License",
+]:
     if heading.lower() not in readme.lower():
         fail(f"README does not document: {heading}")
+
+for path in ["README.md", "Dockerfile", "docker-compose.yml", ".github/workflows/ci.yml"]:
+    content = read(path)
+    if "8080" in content:
+        fail(f"legacy port 8080 remains in {path}")
+    if EXPECTED_PORT not in content:
+        fail(f"expected port {EXPECTED_PORT} is not documented in {path}")
+
+dockerfile = read("Dockerfile")
+for marker in [f"EXPOSE {EXPECTED_PORT}", "USER appuser", "--uid 10001 appuser"]:
+    if marker not in dockerfile:
+        fail(f"Dockerfile hardening marker missing: {marker}")
+
+compose = read("docker-compose.yml")
+expected_mapping = f"${{BGP_ANALYZER_PORT:-{EXPECTED_PORT}}}:{EXPECTED_PORT}"
+if expected_mapping not in compose:
+    fail("docker-compose.yml does not use the expected configurable host-port mapping")
+
+workflow = read(".github/workflows/ci.yml")
+for job in ["quality", "tests", "container", "security"]:
+    if f"  {job}:\n" not in workflow:
+        fail(f"CI job is missing: {job}")
+for marker in ["contents: read", "cancel-in-progress: true", "timeout-minutes:"]:
+    if marker not in workflow:
+        fail(f"CI control is missing: {marker}")
+
+requirements = [
+    line.strip()
+    for line in read("requirements.txt").splitlines()
+    if line.strip() and not line.lstrip().startswith("#")
+]
+for requirement in requirements:
+    if "==" not in requirement:
+        fail(f"Python dependency is not exactly pinned: {requirement}")
+
+index = read("app/static/index.html")
+for marker in [
+    '<html lang="en" dir="ltr">',
+    '<meta name="viewport"',
+    '<meta name="description"',
+    '<title>BGP Incident Analyzer</title>',
+    'class="skip-link"',
+]:
+    if marker not in index:
+        fail(f"static UI accessibility/metadata marker missing: {marker}")
 
 svgs = sorted(IMAGES.glob("*.svg"))
 if not svgs:
@@ -50,5 +124,8 @@ for svg in svgs:
     if f"docs/images/{png.name}" not in readme:
         fail(f"README does not display {png.name}")
 
-print(f"Repository validation passed: {len(svgs)} SVG/PNG pairs checked")
-
+print(
+    "Repository validation passed: "
+    f"port={EXPECTED_PORT}, 4 CI jobs, {len(requirements)} pinned Python dependencies, "
+    f"{len(svgs)} SVG/PNG pairs"
+)
