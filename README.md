@@ -96,7 +96,7 @@ A successful test run returns three passing API tests. For deployment validation
 SVG files in `docs/images/` are the editable sources. PNG files are generated from them for consistent GitHub rendering:
 
 ```bash
-npm install
+npm ci
 npm run render:diagrams
 ```
 

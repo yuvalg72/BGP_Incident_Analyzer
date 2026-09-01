@@ -26,15 +26,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: npm
       - name: Install dependencies
         run: pip install -r requirements.txt
       - name: Install asset tooling
-        run: npm install --ignore-scripts --no-audit --no-fund
-      - name: Emit dependency lock bootstrap
-        run: |
-          echo LOCKFILE_BEGIN
-          cat package-lock.json
-          echo LOCKFILE_END
+        run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Compile Python
         run: python -m compileall -q app
       - name: Run tests
@@ -47,5 +43,4 @@ jobs:
         run: |
           mkdir -p /tmp/bgp-diagrams
           node scripts/render-diagrams.js /tmp/bgp-diagrams
-          cmp docs/images/architecture.png /tmp/bgp-diagrams/architecture.png
-          cmp docs/images/analysis-flow.png /tmp/bgp-diagrams/analysis-flow.png
+          node scripts/compare-diagrams.js /tmp/bgp-diagrams

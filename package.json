@@ -5,10 +5,9 @@
   "description": "Deterministic repository asset rendering and JavaScript validation.",
   "scripts": {
     "render:diagrams": "node scripts/render-diagrams.js",
-    "check:js": "node --check app/static/app.js && node --check scripts/render-diagrams.js"
+    "check:js": "node --check app/static/app.js && node --check scripts/render-diagrams.js && node --check scripts/compare-diagrams.js"
   },
   "devDependencies": {
     "sharp": "0.35.4"
   }
 }
-
