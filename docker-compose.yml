@@ -1,0 +1,13 @@
+services:
+  bgp-analyzer:
+    build: .
+    container_name: bgp-incident-analyzer
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m
+
