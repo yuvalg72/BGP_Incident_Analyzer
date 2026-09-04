@@ -10,12 +10,20 @@ EXPECTED_BASE_IMAGE = (
     "caida/bgpstream:2.3.0@sha256:"
     "d808116911c107926451f882295d85c80940285791ff38c7e6999976d355e3d4"
 )
+EXPECTED_PYTHON_RUNTIME = {
+    "fastapi": ("FastAPI", "0.141.1", "MIT"),
+    "starlette": ("Starlette", "1.6.0", "BSD-3-Clause"),
+    "uvicorn": ("Uvicorn", "0.52.4", "BSD-3-Clause"),
+    "httpx": ("HTTPX", "0.28.1", "BSD-3-Clause"),
+    "pydantic": ("Pydantic", "2.13.5", "MIT"),
+}
 REQUIRED = [
     "LICENSE",
     "NOTICE",
     "THIRD_PARTY_NOTICES.md",
     "LICENSES/CAIDA-BGPStream-BSD-2-Clause.txt",
     "docs/licensing.md",
+    "requirements.txt",
 ]
 
 
@@ -30,6 +38,22 @@ def read(path: str) -> str:
 
 def normalize_whitespace(value: str) -> str:
     return " ".join(value.split())
+
+
+def runtime_requirements() -> dict[str, str]:
+    found: dict[str, str] = {}
+    for raw_line in read("requirements.txt").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "==" not in line:
+            fail(f"runtime dependency is not exactly pinned: {line}")
+        package_spec, version = line.split("==", 1)
+        package = package_spec.split("[", 1)[0].strip().lower()
+        if package in found:
+            fail(f"duplicate runtime dependency: {package}")
+        found[package] = version.strip()
+    return found
 
 
 for path in REQUIRED:
@@ -69,19 +93,34 @@ for marker in [
         fail(f"NOTICE marker missing: {marker}")
 
 third_party = read("THIRD_PARTY_NOTICES.md")
-for marker in [
-    EXPECTED_BASE_IMAGE,
-    "BSD-2-Clause",
-    "libwandio",
-    "LGPL v3",
-    "FastAPI | 0.141.1 | MIT",
-    "Starlette | 1.6.0 | BSD-3-Clause",
-    "Uvicorn | 0.52.4 | BSD-3-Clause",
-    "HTTPX | 0.28.1 | BSD-3-Clause",
-    "Pydantic | 2.13.5 | MIT",
-]:
+for marker in [EXPECTED_BASE_IMAGE, "BSD-2-Clause", "libwandio", "LGPL v3"]:
     if marker not in third_party:
         fail(f"third-party notice marker missing: {marker}")
+
+requirements = runtime_requirements()
+if set(requirements) != set(EXPECTED_PYTHON_RUNTIME):
+    missing = sorted(set(EXPECTED_PYTHON_RUNTIME) - set(requirements))
+    unexpected = sorted(set(requirements) - set(EXPECTED_PYTHON_RUNTIME))
+    details = []
+    if missing:
+        details.append("missing=" + ",".join(missing))
+    if unexpected:
+        details.append("unexpected=" + ",".join(unexpected))
+    fail(
+        "runtime dependency set changed; review third-party licensing and update "
+        "the license validator (" + "; ".join(details) + ")"
+    )
+
+for package, (display_name, expected_version, license_id) in EXPECTED_PYTHON_RUNTIME.items():
+    actual_version = requirements[package]
+    if actual_version != expected_version:
+        fail(
+            f"runtime dependency {package} changed from {expected_version} to "
+            f"{actual_version}; re-verify its license before updating notices"
+        )
+    marker = f"| {display_name} | {actual_version} | {license_id} |"
+    if marker not in third_party:
+        fail(f"third-party dependency row missing or stale: {marker}")
 
 licensing_doc = read("docs/licensing.md")
 for marker in [
@@ -132,5 +171,6 @@ for marker in [
 
 print(
     "License validation passed: Apache-2.0 project license, CAIDA notice, "
-    "machine-readable package/container metadata, and distribution documentation are aligned"
+    "runtime dependency notices, machine-readable package/container metadata, "
+    "and distribution documentation are aligned"
 )
