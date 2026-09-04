@@ -14,7 +14,7 @@ Promise.all(diagrams.map(async (name) => {
   const output = path.join(outputDir, `${name}.png`);
   await sharp(source, { density: 144 })
     .flatten({ background: "#ffffff" })
-    .resize({ width: 1400, withoutEnlargement: false })
+    .resize({ width: 1000, withoutEnlargement: false })
     .png({
       compressionLevel: 9,
       adaptiveFiltering: false,
