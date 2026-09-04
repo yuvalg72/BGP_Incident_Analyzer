@@ -15,11 +15,16 @@ Promise.all(diagrams.map(async (name) => {
   await sharp(source, { density: 144 })
     .flatten({ background: "#ffffff" })
     .resize({ width: 1400, withoutEnlargement: false })
-    .png({ compressionLevel: 9, adaptiveFiltering: false })
+    .png({
+      compressionLevel: 9,
+      adaptiveFiltering: false,
+      palette: true,
+      colours: 64,
+      dither: 0,
+    })
     .toFile(output);
   process.stdout.write(`Rendered ${path.relative(root, output)}\n`);
 })).catch((error) => {
   process.stderr.write(`${error.stack || error}\n`);
   process.exitCode = 1;
 });
-
