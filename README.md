@@ -14,17 +14,21 @@ A POC release is considered test-ready when an operator can:
 - obtain matching announcements, withdrawals, origin ASNs and AS paths from CAIDA BGPStream;
 - identify whether live data or the explicit demonstration fallback produced the result;
 - export a readable summary and complete JSON evidence;
-- distinguish liveness from BGPStream readiness through dedicated health endpoints;
+- distinguish liveness from local BGPReader runtime readiness through dedicated health endpoints;
 - reproduce the API tests and hardened container deployment from this repository;
 - rely on enforced query timeout and event-count safety limits so a single request cannot grow without bound.
 
-Assumptions: outbound access to RIPEstat and CAIDA data sources is available, public collectors observe the relevant prefix, and control-plane evidence is correlated with operational telemetry.
+Assumptions: outbound access to RIPEstat and CAIDA data sources is available, public collectors observe the relevant route, and control-plane evidence is correlated with operational telemetry.
+
+## POC decision checkpoint
+
+The maintainer decision checkpoint is **31/10/2026**. By that date, the project should be explicitly moved toward one of three outcomes: define a production-readiness program toward `1.0.0`, extend the `0.x` POC with new acceptance criteria and a new checkpoint, or archive/supersede the experiment. A passing CI build alone is not sufficient justification for `1.0.0`.
 
 ## Architecture
 
 ![BGP Incident Analyzer architecture](docs/images/architecture.png)
 
-The service resolves a resource, queries CAIDA BGPStream, validates and summarizes the returned control-plane events, and presents the evidence in a browser workspace. See the [architecture and security boundaries](docs/architecture.md) or open the [scalable SVG diagram](docs/images/architecture.svg).
+The service validates a resource, queries CAIDA BGPStream, summarizes the returned control-plane events, and presents the evidence in a browser workspace. For a bare IP address, RIPEstat is used only to enrich the displayed current covering prefix; the BGP query itself uses a host-targeted `prefix any` filter so it still finds covering routes if RIPEstat is unavailable. For an explicit CIDR, the query uses `prefix more` so exact and more-specific updates remain visible. See the [architecture and security boundaries](docs/architecture.md) or open the [scalable SVG diagram](docs/images/architecture.svg).
 
 The application image is layered on CAIDA's official BGPStream 2.3.0 container image. The Dockerfile pins its manifest digest rather than relying on a floating `latest` tag.
 
@@ -32,7 +36,7 @@ The application image is layered on CAIDA's official BGPStream 2.3.0 container i
 
 ![BGP incident analysis workflow](docs/images/analysis-flow.png)
 
-The workflow keeps the incident window in UTC and preserves a visible distinction between live and demonstration data. Open the [scalable SVG workflow](docs/images/analysis-flow.svg).
+The workflow keeps the incident window in UTC and preserves a visible distinction between live and demonstration data. The demonstration dataset always uses the documentation prefix `192.0.2.0/24` and is never labeled as if it were live evidence for the operator's requested resource. Open the [scalable SVG workflow](docs/images/analysis-flow.svg).
 
 ## Quick start
 
@@ -52,7 +56,7 @@ BGP_ANALYZER_PORT=19091 docker compose up -d --build
 
 To bind to a specific management IP, set `BGP_ANALYZER_BIND` explicitly. Do not bind to `0.0.0.0` on an untrusted network unless an authenticated reverse proxy and firewall policy protect the service.
 
-The default **Live only** mode fails closed if live collection cannot run. **Auto fallback** remains available as an explicit operator choice for demonstrations or source-failure troubleshooting, and every result visibly identifies its mode and source.
+The default **Live only** mode fails closed if live collection cannot run. **Auto fallback** remains available as an explicit operator choice for demonstrations or source-failure troubleshooting, and every result visibly identifies its mode and source. If Auto falls back, the result is clearly labeled with the fixed demonstration prefix rather than the requested live target.
 
 ## Runtime controls
 
@@ -76,6 +80,8 @@ If a live query reaches the timeout or event limit, the request fails rather tha
 5. Review the finding, event distribution, observed AS paths, and raw evidence.
 6. Copy the incident summary or export the complete JSON result.
 
+A bare IP address is queried with a BGPStream `prefix any` host filter, which matches the prefixes that can affect that host. A user-supplied CIDR uses `prefix more`, which includes the normalized prefix and its more-specific updates.
+
 ## Local development
 
 ```bash
@@ -97,22 +103,26 @@ curl -X POST http://127.0.0.1:17991/api/analyze \
   -d '{"resource":"192.0.2.10","start":"2026-08-31T20:55:00Z","end":"2026-08-31T21:55:00Z","projects":["ris","routeviews"],"mode":"live"}'
 ```
 
-Request timestamps must include a timezone. The API normalizes them to UTC and rejects unknown request fields and duplicate project selections.
+Request timestamps must include a timezone. The API normalizes them to UTC and rejects unknown request fields and duplicate project selections. Results include query context so the requested resource, resolved display prefix and live BGP filter can be distinguished from the returned event prefix.
 
 Health endpoints:
 
 - `GET /api/health` verifies that the web application process is alive.
-- `GET /api/ready` verifies that the runtime also has `bgpreader` available for live BGP analysis.
+- `GET /api/ready` verifies that the local runtime has `bgpreader` available. It does not prove that every external collector or upstream data service is reachable.
 
 ## Operational boundaries
 
 - This repository is a POC. Hardening, CI coverage and reproducible deployment do not make it a production-ready managed product or a substitute for independent operational validation.
 - BGPStream provides public control-plane observations, not packet-path proof.
 - A missing update is not proof of uninterrupted reachability.
+- Withdrawal and announcement counts are observation events, not unique-peer counts and not proof of recovery ordering. Review event timestamps, peer coverage and adjacent BGP/RIB state before concluding that an outage recovered or remained unrecovered.
 - Correlate findings with MTR, traceroute, packet captures, FortiGate logs, provider telemetry and ticket timestamps.
 - The application does not provide built-in user authentication. Default Compose deployment is loopback-only. Shared or Internet-facing use requires an authenticated reverse proxy, TLS, request rate limiting and firewall restrictions.
 - Query windows are limited to seven days. Live queries also have bounded execution time and event count.
 - The parser accepts BGP announcement and withdrawal elements only. RIB and state elements are not treated as withdrawals.
+- Bare-IP analysis uses a host-targeted `prefix any` BGPStream filter. RIPEstat covering-prefix data is display enrichment and is not required for the live query to target covering routes.
+- Demonstration mode uses a fixed documentation dataset for `192.0.2.0/24`; it must not be interpreted as evidence for the requested resource.
+- The browser table renders at most the first 500 matching events for responsiveness; the JSON export retains all events collected within the configured safety limit.
 - The container runs as unprivileged UID `10001`, drops Linux capabilities, enables `no-new-privileges`, uses an init process for subprocess reaping, and is read-only except for the Compose `/tmp` tmpfs.
 - Responses include restrictive browser security headers, including CSP, frame blocking, no-sniff and no-referrer policies.
 - The BGPStream base image is pinned by digest. Updating that digest is an explicit dependency-maintenance change and should be validated by the container CI gate.
@@ -156,8 +166,8 @@ The primary GitHub Actions workflow runs on pull requests, pushes to `main`, and
 The workflow is split into four focused validation jobs:
 
 - **Quality:** Python compilation, Ruff linting, JavaScript syntax, repository policy validation, Apache-2.0 and third-party licensing validation, and deterministic SVG-to-PNG comparison.
-- **Tests:** FastAPI and analyzer tests covering strict API validation, BGPReader parsing, state/RIB rejection, event-limit handling, timeout cleanup, severity classification, and timeline aggregation.
-- **Container:** Compose validation, Docker build, non-root UID verification, embedded licensing-material verification, live BGPStream readiness, liveness, API documentation and security-header smoke checks on port `17991`.
+- **Tests:** FastAPI and analyzer tests covering strict API validation, host/prefix filter semantics, RIPEstat fallback, demo isolation, BGPReader parsing, state/RIB rejection, event-limit handling, timeout cleanup, severity classification, and timeline aggregation.
+- **Container:** Compose validation, Docker build, non-root UID verification, embedded licensing-material verification, local BGPReader readiness, liveness, API documentation and security-header smoke checks on port `17991`.
 - **Security:** dependency vulnerability auditing with `pip-audit` against the exactly pinned runtime and development Python requirements.
 
 CI validates the source and the self-hosted POC container candidate. Publishing a tagged POC release or pre-built container image remains an explicit release action rather than an automatic side effect of every merge.
@@ -166,7 +176,9 @@ CI validates the source and the self-hosted POC container candidate. Publishing 
 
 This project is maintained as a public, self-hosted proof of concept. The `0.x` lifecycle is intentionally pre-1.0 and may evolve as the design is validated. There is no production support or SLA implied by the repository. Use GitHub Issues for reproducible defects and bounded enhancement proposals. Report suspected security vulnerabilities using the private process in [SECURITY.md](SECURITY.md).
 
-Dependency updates are managed through Dependabot for both Python and npm ecosystems. Material changes should use a branch and pull request and must preserve the distinction between live evidence and demonstration data.
+Dependency updates are managed through Dependabot for Python and npm. Material changes should use a branch and pull request and must preserve the distinction between live evidence and demonstration data.
+
+The POC must be reassessed at the decision checkpoint above before any `1.0.0` designation.
 
 ## License
 
