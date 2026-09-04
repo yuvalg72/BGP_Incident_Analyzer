@@ -28,6 +28,10 @@ def read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
 
+def normalize_whitespace(value: str) -> str:
+    return " ".join(value.split())
+
+
 for path in REQUIRED:
     if not (ROOT / path).is_file():
         fail(f"missing licensing file: {path}")
@@ -54,7 +58,7 @@ for marker in [
     if marker not in caida:
         fail(f"CAIDA BSD notice marker missing: {marker}")
 
-notice = read("NOTICE")
+notice = normalize_whitespace(read("NOTICE"))
 for marker in [
     "BGP Incident Analyzer",
     "CAIDA BGPStream",
