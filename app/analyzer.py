@@ -7,6 +7,7 @@ import os
 import shutil
 from collections import Counter, defaultdict
 from contextlib import suppress
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
@@ -28,41 +29,128 @@ QUERY_TIMEOUT_SECONDS = _bounded_int_env(
     "BGP_ANALYZER_QUERY_TIMEOUT_SECONDS", 90, 5, 300
 )
 MAX_EVENTS = _bounded_int_env("BGP_ANALYZER_MAX_EVENTS", 10_000, 100, 100_000)
+DEMO_PREFIX = "192.0.2.0/24"
+
+
+@dataclass(frozen=True)
+class ResourceTarget:
+    requested_resource: str
+    display_prefix: str
+    bgp_filter: str
+    resolution: str
+
 
 DEMO_EVENTS = [
-    {"timestamp": "2026-08-31T20:55:11Z", "type": "A", "project": "ris", "collector": "rrc00", "peer_asn": 64501, "peer_ip": "192.0.2.1", "prefix": "192.0.2.0/24", "as_path": "64501 64510 64512", "origin_asn": 64512},
-    {"timestamp": "2026-08-31T21:07:43Z", "type": "W", "project": "ris", "collector": "rrc10", "peer_asn": 64502, "peer_ip": "198.51.100.2", "prefix": "192.0.2.0/24", "as_path": "", "origin_asn": None},
-    {"timestamp": "2026-08-31T21:08:02Z", "type": "W", "project": "routeviews", "collector": "route-views.linx", "peer_asn": 64503, "peer_ip": "203.0.113.3", "prefix": "192.0.2.0/24", "as_path": "", "origin_asn": None},
-    {"timestamp": "2026-08-31T21:08:18Z", "type": "W", "project": "ris", "collector": "rrc12", "peer_asn": 64504, "peer_ip": "192.0.2.4", "prefix": "192.0.2.0/24", "as_path": "", "origin_asn": None},
-    {"timestamp": "2026-08-31T21:49:04Z", "type": "A", "project": "ris", "collector": "rrc10", "peer_asn": 64502, "peer_ip": "198.51.100.2", "prefix": "192.0.2.0/24", "as_path": "64502 64510 64512", "origin_asn": 64512},
-    {"timestamp": "2026-08-31T21:49:12Z", "type": "A", "project": "routeviews", "collector": "route-views.linx", "peer_asn": 64503, "peer_ip": "203.0.113.3", "prefix": "192.0.2.0/24", "as_path": "64503 64510 64512", "origin_asn": 64512},
-    {"timestamp": "2026-08-31T21:49:31Z", "type": "A", "project": "ris", "collector": "rrc12", "peer_asn": 64504, "peer_ip": "192.0.2.4", "prefix": "192.0.2.0/24", "as_path": "64504 64510 64512", "origin_asn": 64512},
+    {"timestamp": "2026-08-31T20:55:11Z", "type": "A", "project": "ris", "collector": "rrc00", "peer_asn": 64501, "peer_ip": "192.0.2.1", "prefix": DEMO_PREFIX, "as_path": "64501 64510 64512", "origin_asn": 64512},
+    {"timestamp": "2026-08-31T21:07:43Z", "type": "W", "project": "ris", "collector": "rrc10", "peer_asn": 64502, "peer_ip": "198.51.100.2", "prefix": DEMO_PREFIX, "as_path": "", "origin_asn": None},
+    {"timestamp": "2026-08-31T21:08:02Z", "type": "W", "project": "routeviews", "collector": "route-views.linx", "peer_asn": 64503, "peer_ip": "203.0.113.3", "prefix": DEMO_PREFIX, "as_path": "", "origin_asn": None},
+    {"timestamp": "2026-08-31T21:08:18Z", "type": "W", "project": "ris", "collector": "rrc12", "peer_asn": 64504, "peer_ip": "192.0.2.4", "prefix": DEMO_PREFIX, "as_path": "", "origin_asn": None},
+    {"timestamp": "2026-08-31T21:49:04Z", "type": "A", "project": "ris", "collector": "rrc10", "peer_asn": 64502, "peer_ip": "198.51.100.2", "prefix": DEMO_PREFIX, "as_path": "64502 64510 64512", "origin_asn": 64512},
+    {"timestamp": "2026-08-31T21:49:12Z", "type": "A", "project": "routeviews", "collector": "route-views.linx", "peer_asn": 64503, "peer_ip": "203.0.113.3", "prefix": DEMO_PREFIX, "as_path": "64503 64510 64512", "origin_asn": 64512},
+    {"timestamp": "2026-08-31T21:49:31Z", "type": "A", "project": "ris", "collector": "rrc12", "peer_asn": 64504, "peer_ip": "192.0.2.4", "prefix": DEMO_PREFIX, "as_path": "64504 64510 64512", "origin_asn": 64512},
 ]
 
 
-async def resolve_resource(resource: str) -> tuple[str, str]:
+def parse_resource(resource: str) -> ResourceTarget:
     resource = resource.strip()
-    try:
-        network = ipaddress.ip_network(resource, strict=False)
-        return str(network), "user-supplied prefix"
-    except ValueError:
+    if not resource:
+        raise ValueError("Enter a valid IPv4/IPv6 address or prefix")
+
+    if "/" in resource:
         try:
-            ipaddress.ip_address(resource)
+            network = ipaddress.ip_network(resource, strict=False)
         except ValueError as exc:
             raise ValueError("Enter a valid IPv4/IPv6 address or prefix") from exc
+        canonical = str(network)
+        return ResourceTarget(
+            requested_resource=resource,
+            display_prefix=canonical,
+            bgp_filter=f"prefix more {canonical}",
+            resolution="user-supplied prefix; exact and more-specific updates included",
+        )
 
+    try:
+        address = ipaddress.ip_address(resource)
+    except ValueError as exc:
+        raise ValueError("Enter a valid IPv4/IPv6 address or prefix") from exc
+
+    host_prefix = f"{address}/{address.max_prefixlen}"
+    return ResourceTarget(
+        requested_resource=str(address),
+        display_prefix=host_prefix,
+        bgp_filter=f"prefix any {host_prefix}",
+        resolution=(
+            "user-supplied IP; BGPStream query matches any covering prefix even if "
+            "RIPEstat enrichment is unavailable"
+        ),
+    )
+
+
+async def resolve_resource(resource: str) -> ResourceTarget:
+    target = parse_resource(resource)
+    if target.bgp_filter.startswith("prefix more "):
+        return target
+
+    address = ipaddress.ip_address(target.requested_resource)
     url = "https://stat.ripe.net/data/network-info/data.json"
     try:
         async with httpx.AsyncClient(timeout=12) as client:
-            response = await client.get(url, params={"resource": resource})
+            response = await client.get(
+                url,
+                params={
+                    "resource": target.requested_resource,
+                    "sourceapp": "bgp-incident-analyzer",
+                },
+            )
             response.raise_for_status()
             prefix = response.json().get("data", {}).get("prefix")
-            if prefix:
-                return prefix, "resolved by RIPEstat"
     except (httpx.HTTPError, json.JSONDecodeError):
-        pass
-    host_prefix = f"{resource}/32" if ":" not in resource else f"{resource}/128"
-    return host_prefix, "host prefix fallback; verify aggregation"
+        return target
+
+    if not prefix:
+        return ResourceTarget(
+            **{
+                **target.__dict__,
+                "resolution": (
+                    "RIPEstat returned no current covering prefix; BGPStream still "
+                    "queries any prefix affecting the supplied host"
+                ),
+            }
+        )
+
+    try:
+        network = ipaddress.ip_network(prefix, strict=False)
+    except ValueError:
+        return ResourceTarget(
+            **{
+                **target.__dict__,
+                "resolution": (
+                    "RIPEstat returned an invalid covering prefix; BGPStream still "
+                    "queries any prefix affecting the supplied host"
+                ),
+            }
+        )
+
+    if address.version != network.version or address not in network:
+        return ResourceTarget(
+            **{
+                **target.__dict__,
+                "resolution": (
+                    "RIPEstat covering-prefix response did not contain the supplied "
+                    "host; BGPStream host-targeted filtering remains in use"
+                ),
+            }
+        )
+
+    return ResourceTarget(
+        requested_resource=target.requested_resource,
+        display_prefix=str(network),
+        bgp_filter=target.bgp_filter,
+        resolution=(
+            "IP enriched with the current RIPEstat covering prefix; BGPStream uses "
+            "a prefix-any host filter so unrelated more-specifics are excluded"
+        ),
+    )
 
 
 def _parse_bgpreader_line(line: str) -> dict[str, Any] | None:
@@ -139,7 +227,7 @@ async def _stop_process(proc: asyncio.subprocess.Process) -> None:
 
 
 async def collect_live(
-    prefix: str, start: datetime, end: datetime, projects: list[str]
+    bgp_filter: str, start: datetime, end: datetime, projects: list[str]
 ) -> list[dict[str, Any]]:
     if not shutil.which("bgpreader"):
         raise RuntimeError("bgpreader is not installed in this runtime")
@@ -150,8 +238,8 @@ async def collect_live(
         f"{int(start.timestamp())},{int(end.timestamp())}",
         "-t",
         "updates",
-        "-k",
-        prefix,
+        "-f",
+        bgp_filter,
     ]
     for project in projects:
         args.extend(["-p", project])
@@ -217,20 +305,23 @@ def summarize(
         finding = (
             "Multiple origin ASNs were observed "
             f"({', '.join('AS' + str(x) for x in origins)}). "
-            "Validate authorization and RPKI immediately."
+            "Treat this as potential MOAS/origin-change evidence and validate "
+            "authorization, RPKI state, event timing and peer coverage."
         )
     elif withdrawals and announcements:
         severity = "warning"
         finding = (
-            f"The prefix was withdrawn by {len(withdrawals)} observation peers and "
-            "later announced again. This is consistent with a routing interruption "
-            "or reconvergence event."
+            f"Observed {len(withdrawals)} withdrawal events and "
+            f"{len(announcements)} announcement events in the selected window. "
+            "This is consistent with routing instability or reconvergence; review "
+            "event order and peer coverage before concluding that recovery occurred."
         )
     elif withdrawals:
-        severity = "critical"
+        severity = "warning"
         finding = (
-            f"{len(withdrawals)} withdrawals were observed without a recovery "
-            "announcement in the selected window."
+            f"Observed {len(withdrawals)} withdrawal events and no announcements in "
+            "the selected window. Check adjacent BGP history, RIB state and packet-path "
+            "telemetry before treating this as an unrecovered outage."
         )
     elif not events:
         severity = "unknown"
