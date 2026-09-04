@@ -1,30 +1,32 @@
 # BGP Incident Analyzer
 
-An operational web interface for network and security teams investigating BGP announcements, withdrawals, origin changes and AS-path visibility using CAIDA BGPStream data from RIPE RIS and Route Views.
+A hardened, self-hosted proof of concept (POC) for network and security teams investigating BGP announcements, withdrawals, origin changes and AS-path visibility using CAIDA BGPStream data from RIPE RIS and Route Views.
 
-> **Project status:** Experimental proof of concept. Suitable for controlled internal evaluation, not direct Internet exposure.
+> **Project status:** Maintained public proof of concept. The project remains in the `0.x` lifecycle and is intended for controlled evaluation, self-hosted testing and technical experimentation. It is not presented as a production-ready managed product or supported service. Docker Compose binds to loopback by default. Internet-facing deployment requires an authenticated reverse proxy, TLS, request rate limiting and normal host firewall controls.
 
 ## Objective and success criteria
 
-The POC tests whether public BGP observations can be turned into a concise, repeatable incident record without requiring analysts to manually download and parse collector files.
+The POC demonstrates how public BGP observations can be turned into a concise, repeatable incident record without requiring analysts to manually download and parse collector files.
 
-The experiment is successful when an operator can:
+A POC release is considered test-ready when an operator can:
 
-- submit a valid IP address or prefix and bounded UTC window;
-- obtain matching announcements, withdrawals, origin ASNs and AS paths;
-- identify whether live data or demonstration fallback produced the result;
+- submit a valid IPv4/IPv6 address or prefix and a bounded timezone-aware incident window;
+- obtain matching announcements, withdrawals, origin ASNs and AS paths from CAIDA BGPStream;
+- identify whether live data or the explicit demonstration fallback produced the result;
 - export a readable summary and complete JSON evidence;
-- reproduce the API tests and container deployment from this repository.
+- distinguish liveness from BGPStream readiness through dedicated health endpoints;
+- reproduce the API tests and hardened container deployment from this repository;
+- rely on enforced query timeout and event-count safety limits so a single request cannot grow without bound.
 
 Assumptions: outbound access to RIPEstat and CAIDA data sources is available, public collectors observe the relevant prefix, and control-plane evidence is correlated with operational telemetry.
-
-**Decision date:** Review production suitability by `01/12/2026`. Until then, the repository remains an experimental POC.
 
 ## Architecture
 
 ![BGP Incident Analyzer architecture](docs/images/architecture.png)
 
 The service resolves a resource, queries CAIDA BGPStream, validates and summarizes the returned control-plane events, and presents the evidence in a browser workspace. See the [architecture and security boundaries](docs/architecture.md) or open the [scalable SVG diagram](docs/images/architecture.svg).
+
+The application image is layered on CAIDA's official BGPStream 2.3.0 container image. The Dockerfile pins its manifest digest rather than relying on a floating `latest` tag.
 
 ## Analysis workflow
 
@@ -40,9 +42,30 @@ Requirements: Docker Engine with the Compose plugin and outbound HTTPS access.
 docker compose up -d --build
 ```
 
-Open `http://localhost:8080`.
+Open `http://127.0.0.1:17991`.
 
-The default **Auto fallback** mode uses live `bgpreader` data and shows the included demonstration dataset if the live collector cannot run. Select **Live only** when a fallback must never be used. Every result visibly identifies its mode and source.
+Docker Compose intentionally binds the service only to loopback by default. The host-side port can be changed without changing the container port:
+
+```bash
+BGP_ANALYZER_PORT=19091 docker compose up -d --build
+```
+
+To bind to a specific management IP, set `BGP_ANALYZER_BIND` explicitly. Do not bind to `0.0.0.0` on an untrusted network unless an authenticated reverse proxy and firewall policy protect the service.
+
+The default **Live only** mode fails closed if live collection cannot run. **Auto fallback** remains available as an explicit operator choice for demonstrations or source-failure troubleshooting, and every result visibly identifies its mode and source.
+
+## Runtime controls
+
+The container accepts these bounded settings:
+
+| Variable | Default | Allowed behavior |
+| --- | ---: | --- |
+| `BGP_ANALYZER_BIND` | `127.0.0.1` | Docker Compose host bind address. |
+| `BGP_ANALYZER_PORT` | `17991` | Host-side TCP port. The container always listens on `17991`. |
+| `BGP_ANALYZER_QUERY_TIMEOUT_SECONDS` | `90` | Live-query timeout, bounded by the application to 5-300 seconds. |
+| `BGP_ANALYZER_MAX_EVENTS` | `10000` | Maximum parsed live BGP events per request, bounded to 100-100000. |
+
+If a live query reaches the timeout or event limit, the request fails rather than returning silently truncated live evidence. Auto mode can then visibly fall back to the demonstration dataset.
 
 ## Workflow
 
@@ -58,40 +81,66 @@ The default **Auto fallback** mode uses live `bgpreader` data and shows the incl
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8080
+pip install -r requirements-dev.txt
+uvicorn app.main:app --reload --port 17991
 ```
 
-Without `bgpreader`, local development still supports Demonstration and Auto fallback modes. Live mode requires the CAIDA `bgpstream` package.
+Without `bgpreader`, local development still supports Demonstration and Auto fallback modes. Live mode and the readiness endpoint require the CAIDA `bgpstream` package.
 
 ## API
 
-Interactive API documentation is available at `http://localhost:8080/api/docs`.
+Interactive API documentation is available at `http://127.0.0.1:17991/api/docs`.
 
 ```bash
-curl -X POST http://localhost:8080/api/analyze \
+curl -X POST http://127.0.0.1:17991/api/analyze \
   -H 'Content-Type: application/json' \
-  -d '{"resource":"192.0.2.10","start":"2026-08-31T20:55:00Z","end":"2026-08-31T21:55:00Z","projects":["ris","routeviews"],"mode":"auto"}'
+  -d '{"resource":"192.0.2.10","start":"2026-08-31T20:55:00Z","end":"2026-08-31T21:55:00Z","projects":["ris","routeviews"],"mode":"live"}'
 ```
+
+Request timestamps must include a timezone. The API normalizes them to UTC and rejects unknown request fields and duplicate project selections.
+
+Health endpoints:
+
+- `GET /api/health` verifies that the web application process is alive.
+- `GET /api/ready` verifies that the runtime also has `bgpreader` available for live BGP analysis.
 
 ## Operational boundaries
 
+- This repository is a POC. Hardening, CI coverage and reproducible deployment do not make it a production-ready managed product or a substitute for independent operational validation.
 - BGPStream provides public control-plane observations, not packet-path proof.
 - A missing update is not proof of uninterrupted reachability.
 - Correlate findings with MTR, traceroute, packet captures, FortiGate logs, provider telemetry and ticket timestamps.
-- The service has no authentication in this POC. Bind it to a trusted management network or place it behind an authenticated reverse proxy before shared deployment.
-- Query windows are limited to seven days and each live query has a 90-second execution limit.
+- The application does not provide built-in user authentication. Default Compose deployment is loopback-only. Shared or Internet-facing use requires an authenticated reverse proxy, TLS, request rate limiting and firewall restrictions.
+- Query windows are limited to seven days. Live queries also have bounded execution time and event count.
+- The parser accepts BGP announcement and withdrawal elements only. RIB and state elements are not treated as withdrawals.
+- The container runs as unprivileged UID `10001`, drops Linux capabilities, enables `no-new-privileges`, uses an init process for subprocess reaping, and is read-only except for the Compose `/tmp` tmpfs.
+- Responses include restrictive browser security headers, including CSP, frame blocking, no-sniff and no-referrer policies.
+- The BGPStream base image is pinned by digest. Updating that digest is an explicit dependency-maintenance change and should be validated by the container CI gate.
+- `0.x` releases may change interfaces or behavior as the POC evolves. Review the changelog and validate the exact commit before relying on a new revision.
 
 ## Validation
 
+Core local validation:
+
 ```bash
 pytest -q
-python -m compileall -q app
+python -m compileall -q app tests scripts
 node --check app/static/app.js
 python scripts/validate_repository.py
+python scripts/validate_licenses.py
 ```
 
-A successful test run returns three passing API tests. For deployment validation, confirm that `docker compose up -d --build` completes and that `GET /api/health` returns `{"status":"ok"}`.
+Optional local checks matching CI:
+
+```bash
+python -m pip install ruff==0.12.8 pip-audit==2.9.0
+ruff check app tests scripts
+pip-audit -r requirements-dev.txt
+docker compose config -q
+docker build -t bgp-incident-analyzer .
+```
+
+For deployment validation, confirm that `docker compose up -d --build` completes, `GET /api/health` returns `{"status":"ok","version":"0.2.0"}`, and `GET /api/ready` returns `{"status":"ready","version":"0.2.0","bgpreader":true}`.
 
 SVG files in `docs/images/` are the editable sources. PNG files are generated from them for consistent GitHub rendering:
 
@@ -100,6 +149,29 @@ npm ci
 npm run render:diagrams
 ```
 
+## CI/CD
+
+The primary GitHub Actions workflow runs on pull requests, pushes to `main`, and manual dispatch. It uses read-only repository permissions, cancellation of superseded runs, and explicit job timeouts.
+
+The workflow is split into four focused validation jobs:
+
+- **Quality:** Python compilation, Ruff linting, JavaScript syntax, repository policy validation, Apache-2.0 and third-party licensing validation, and deterministic SVG-to-PNG comparison.
+- **Tests:** FastAPI and analyzer tests covering strict API validation, BGPReader parsing, state/RIB rejection, event-limit handling, timeout cleanup, severity classification, and timeline aggregation.
+- **Container:** Compose validation, Docker build, non-root UID verification, embedded licensing-material verification, live BGPStream readiness, liveness, API documentation and security-header smoke checks on port `17991`.
+- **Security:** dependency vulnerability auditing with `pip-audit` against the exactly pinned runtime and development Python requirements.
+
+CI validates the source and the self-hosted POC container candidate. Publishing a tagged POC release or pre-built container image remains an explicit release action rather than an automatic side effect of every merge.
+
 ## Maintenance
 
-This project is currently maintained as an experimental proof of concept. Use GitHub Issues for reproducible defects and enhancement proposals. Report suspected security vulnerabilities using the private process in [SECURITY.md](SECURITY.md).
+This project is maintained as a public, self-hosted proof of concept. The `0.x` lifecycle is intentionally pre-1.0 and may evolve as the design is validated. There is no production support or SLA implied by the repository. Use GitHub Issues for reproducible defects and bounded enhancement proposals. Report suspected security vulnerabilities using the private process in [SECURITY.md](SECURITY.md).
+
+Dependency updates are managed through Dependabot for both Python and npm ecosystems. Material changes should use a branch and pull request and must preserve the distinction between live evidence and demonstration data.
+
+## License
+
+BGP Incident Analyzer's first-party source code and documentation are licensed under the **Apache License 2.0**. See [LICENSE](LICENSE) for the complete license terms.
+
+Third-party software is not relicensed under Apache-2.0. Attribution and direct dependency licensing information are documented in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), with the CAIDA BGPStream BSD notice retained at [LICENSES/CAIDA-BGPStream-BSD-2-Clause.txt](LICENSES/CAIDA-BGPStream-BSD-2-Clause.txt). The repository also includes [NOTICE](NOTICE) so required attribution remains visible in redistributions.
+
+The Dockerfile copies the repository's licensing materials into `/usr/share/licenses/bgp-incident-analyzer/` in the built image. See [docs/licensing.md](docs/licensing.md) for contribution terms, third-party boundaries, and the additional license-audit gate required before publishing pre-built binary or container artifacts.

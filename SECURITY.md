@@ -2,15 +2,24 @@
 
 ## Supported status
 
-This repository is an experimental proof of concept. It is not a hardened multi-user service and does not include built-in authentication.
+The `0.x` line is a maintained self-hosted proof of concept (POC) intended for controlled evaluation, testing and technical experimentation. The repository includes deployment hardening and security validation, but it is not presented as a production-ready managed product or supported service.
+
+The default Docker Compose configuration binds to `127.0.0.1` and is designed to be placed behind normal management-plane controls.
+
+The application does not include built-in user authentication. Do not expose its application port directly to an untrusted network. Internet-facing deployment requires an authenticated reverse proxy, TLS, request rate limiting and host/network firewall restrictions.
 
 ## Reporting a vulnerability
 
 Do not open a public issue for a suspected vulnerability. Report it privately through GitHub's private vulnerability reporting feature when available, or contact the repository owner directly through their verified GitHub profile.
 
-Include the affected version, reproduction steps, impact, and any suggested mitigation. Do not include real credentials, customer information, or production network evidence.
+Include the affected version, reproduction steps, impact, and any suggested mitigation. Do not include real credentials, customer information, production IP addressing, raw configurations or private incident evidence.
 
 ## Deployment boundary
 
-Run the service only on a trusted management network or behind an authenticated reverse proxy. Keep outbound access restricted to the data sources required for BGP analysis.
-
+- Treat every `0.x` build as a POC candidate that requires validation in the intended environment before use.
+- Keep the default loopback bind unless a specific management interface is required.
+- Restrict outbound access to the data sources required for BGP analysis.
+- Treat `GET /api/health` as liveness and `GET /api/ready` as live-analysis readiness.
+- Preserve the application query timeout and event-count limits unless a tested operational requirement justifies a bounded override.
+- Keep the container non-root, read-only, capability-free and protected by `no-new-privileges`.
+- Terminate TLS and enforce authentication/rate limiting at the reverse proxy for shared access.

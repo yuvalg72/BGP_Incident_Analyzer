@@ -11,7 +11,7 @@
   <a class="skip-link" href="#main">Skip to analysis</a>
   <header class="topbar">
     <div class="brand"><span class="brand-mark" aria-hidden="true">B</span><div><strong>BGP Incident Analyzer</strong><span>Routing evidence workspace</span></div></div>
-    <div class="source-state"><span class="pulse" aria-hidden="true"></span><span>CAIDA BGPStream ready</span></div>
+    <div class="source-state" aria-live="polite"><span class="pulse" aria-hidden="true"></span><span id="source-state-text">Checking CAIDA BGPStream</span></div>
   </header>
 
   <main id="main">
@@ -42,14 +42,14 @@
         </fieldset>
         <div class="field">
           <label for="mode">Query mode</label>
-          <select id="mode" name="mode"><option value="auto">Auto fallback</option><option value="live">Live only</option><option value="demo">Demonstration</option></select>
+          <select id="mode" name="mode"><option value="live">Live only</option><option value="auto">Auto fallback</option><option value="demo">Demonstration</option></select>
         </div>
         <button class="primary" type="submit"><span>Analyze routing</span><span aria-hidden="true">→</span></button>
       </form>
       <div id="form-error" class="form-error" role="alert" hidden></div>
     </section>
 
-    <section id="loading" class="loading" aria-live="polite" hidden><span class="spinner" aria-hidden="true"></span><div><strong>Querying route collectors</strong><span>This can take up to 90 seconds for a large window.</span></div></section>
+    <section id="loading" class="loading" aria-live="polite" hidden><span class="spinner" aria-hidden="true"></span><div><strong>Querying route collectors</strong><span>Live queries are bounded by timeout and event-count safety limits.</span></div></section>
 
     <section id="results" class="results" aria-labelledby="result-title" hidden>
       <div class="result-head">

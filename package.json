@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "description": "Deterministic repository asset rendering and JavaScript validation.",
+  "license": "Apache-2.0",
   "scripts": {
     "render:diagrams": "node scripts/render-diagrams.js",
     "check:js": "node --check app/static/app.js && node --check scripts/render-diagrams.js && node --check scripts/compare-diagrams.js"
