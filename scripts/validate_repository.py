@@ -99,7 +99,9 @@ for marker in [
     if marker not in security.lower():
         fail(f"SECURITY.md POC lifecycle marker missing: {marker}")
 
-for path in ["app/main.py", "app/static/index.html", "tests/test_app.py"]:
+# Production-facing sources must not advertise the current POC as v1.0.
+# Tests may intentionally contain the legacy string in a negative assertion.
+for path in ["app/main.py", "app/static/index.html"]:
     content = read(path)
     if "APP_VERSION = \"1.0.0\"" in content or "BGP Incident Analyzer v1.0" in content:
         fail(f"current-version 1.0 marker remains in {path}")
@@ -166,6 +168,7 @@ for marker in [
     "test_demo_analysis_is_never_labeled_as_requested_prefix",
     "test_auto_fallback_keeps_demo_prefix_distinct",
     "BGP Incident Analyzer v0.2.0",
+    'assert "BGP Incident Analyzer v1.0" not in response.text',
 ]:
     if marker not in tests:
         fail(f"API regression coverage marker missing: {marker}")
