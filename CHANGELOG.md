@@ -15,7 +15,7 @@ All notable changes to this project will be documented in this file.
 - Added browser security headers including CSP, frame blocking, no-sniff, no-referrer and restrictive permissions policy.
 - Limited live analysis with bounded query timeout and event-count controls, and added subprocess cleanup on timeout, event-limit abort and request cancellation.
 - Corrected BGPReader parsing so only announcement and withdrawal elements are accepted; RIB and state elements are no longer eligible for withdrawal accounting.
-- Upgraded FastAPI to 0.141.1, Pydantic to 2.13.5, explicitly pinned Starlette 1.6.0, and upgraded pytest to 9.1.1 after dependency auditing.
+- Upgraded FastAPI to 0.141.1, Pydantic to 2.13.5, explicitly pinned Starlette 1.6.0, preserved the already-merged Uvicorn 0.52.4 update from `main`, and upgraded pytest to 9.1.1 after dependency auditing.
 - Moved pytest out of the production dependency set into `requirements-dev.txt` so the runtime image contains only application dependencies.
 - Expanded CI into separate quality, test, container, and dependency-security jobs.
 - Added Docker build, non-root runtime, BGPStream readiness, liveness, API documentation and security-header smoke tests.
