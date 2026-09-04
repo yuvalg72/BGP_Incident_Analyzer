@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import struct
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -8,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 IMAGES = ROOT / "docs" / "images"
 EXPECTED_PORT = "17991"
 EXPECTED_APP_VERSION = "0.2.0"
+EXPECTED_POC_DECISION_DATE = "31/10/2026"
 EXPECTED_BGPSTREAM_BASE = (
     "FROM caida/bgpstream:2.3.0@sha256:"
     "d808116911c107926451f882295d85c80940285791ff38c7e6999976d355e3d4"
@@ -65,6 +67,7 @@ for heading in [
     "Quick start",
     "Architecture",
     "Success criteria",
+    "POC decision checkpoint",
     "Operational boundaries",
     "Validation",
     "CI/CD",
@@ -78,9 +81,14 @@ for marker in [
     "proof of concept",
     "the project remains in the `0.x` lifecycle",
     "not presented as a production-ready managed product",
+    EXPECTED_POC_DECISION_DATE,
+    "prefix any",
+    "prefix more",
+    "demonstration dataset always uses",
+    "first 500 matching events",
 ]:
     if marker not in readme.lower():
-        fail(f"README POC lifecycle marker missing: {marker}")
+        fail(f"README POC/runtime marker missing: {marker}")
 
 security = read("SECURITY.md")
 for marker in [
@@ -91,10 +99,10 @@ for marker in [
     if marker not in security.lower():
         fail(f"SECURITY.md POC lifecycle marker missing: {marker}")
 
-for path in ["README.md", "SECURITY.md", "app/main.py", "tests/test_app.py"]:
+for path in ["app/main.py", "app/static/index.html", "tests/test_app.py"]:
     content = read(path)
-    if "1.0.0" in content or "1.x" in content:
-        fail(f"production-style 1.x version marker remains in {path}")
+    if "APP_VERSION = \"1.0.0\"" in content or "BGP Incident Analyzer v1.0" in content:
+        fail(f"current-version 1.0 marker remains in {path}")
 
 for path in ["README.md", "Dockerfile", "docker-compose.yml", ".github/workflows/ci.yml"]:
     content = read(path)
@@ -145,6 +153,8 @@ for marker in [
     '"Content-Security-Policy"',
     '"Cache-Control", "no-store"',
     'mode: Literal["auto", "live", "demo"] = "live"',
+    "DEMO_PREFIX",
+    "_attach_query_context",
 ]:
     if marker not in main:
         fail(f"application safety/version marker missing: {marker}")
@@ -152,9 +162,16 @@ for marker in [
 tests = read("tests/test_app.py")
 if f'"version": "{EXPECTED_APP_VERSION}"' not in tests:
     fail("API tests do not assert the expected POC application version")
+for marker in [
+    "test_demo_analysis_is_never_labeled_as_requested_prefix",
+    "test_auto_fallback_keeps_demo_prefix_distinct",
+    "BGP Incident Analyzer v0.2.0",
+]:
+    if marker not in tests:
+        fail(f"API regression coverage marker missing: {marker}")
 
 changelog = read("CHANGELOG.md")
-for marker in ["proof of concept", f"`{EXPECTED_APP_VERSION}`"]:
+for marker in ["proof of concept", f"[{EXPECTED_APP_VERSION}]", EXPECTED_POC_DECISION_DATE]:
     if marker not in changelog.lower():
         fail(f"CHANGELOG POC/version marker missing: {marker}")
 
@@ -165,9 +182,25 @@ for marker in [
     'fields[1] not in {"A", "W"}',
     "_EventLimitExceeded",
     "except asyncio.CancelledError:",
+    "class ResourceTarget",
+    'bgp_filter=f"prefix any {host_prefix}"',
+    'bgp_filter=f"prefix more {canonical}"',
+    '"-f",',
 ]:
     if marker not in analyzer:
-        fail(f"analyzer safety marker missing: {marker}")
+        fail(f"analyzer safety/filter marker missing: {marker}")
+if '"-k",' in analyzer:
+    fail("legacy exact/more-specific -k prefix targeting remains in app/analyzer.py")
+
+analyzer_tests = read("tests/test_analyzer.py")
+for marker in [
+    "test_parse_resource_bare_ip_uses_prefix_any_not_host_exact",
+    "prefix any 8.8.8.8/32",
+    "test_collect_live_uses_bgpstream_filter_expression",
+    "test_summarize_mixed_updates_does_not_claim_recovery_order",
+]:
+    if marker not in analyzer_tests:
+        fail(f"analyzer regression coverage marker missing: {marker}")
 
 workflow = read(".github/workflows/ci.yml")
 for job in ["quality", "tests", "container", "security"]:
@@ -206,6 +239,10 @@ for requirement in dev_requirements:
     if "==" not in requirement:
         fail(f"Development Python dependency is not exactly pinned: {requirement}")
 
+package = json.loads(read("package.json"))
+if package.get("license") != "Apache-2.0":
+    fail("package.json license metadata is not Apache-2.0")
+
 index = read("app/static/index.html")
 for marker in [
     '<html lang="en" dir="ltr">',
@@ -215,14 +252,23 @@ for marker in [
     'class="skip-link"',
     'id="source-state-text"',
     '<option value="live">Live only</option><option value="auto">Auto fallback</option>',
+    f"BGP Incident Analyzer v{EXPECTED_APP_VERSION}",
+    'id="event-count-note"',
 ]:
     if marker not in index:
-        fail(f"static UI accessibility/metadata marker missing: {marker}")
+        fail(f"static UI accessibility/version marker missing: {marker}")
 
 app_js = read("app/static/app.js")
-for marker in ["refreshReadiness", 'fetch("/api/ready"', "textContent"]:
+for marker in [
+    "refreshReadiness",
+    'fetch("/api/ready"',
+    "textContent",
+    "EVENT_TABLE_LIMIT = 500",
+    "BGPReader runtime ready",
+    "Export JSON includes all collected events",
+]:
     if marker not in app_js:
-        fail(f"static UI readiness/safety marker missing: {marker}")
+        fail(f"static UI readiness/disclosure marker missing: {marker}")
 
 svgs = sorted(IMAGES.glob("*.svg"))
 if not svgs:
@@ -250,6 +296,7 @@ for svg in svgs:
 print(
     "Repository validation passed: "
     f"status=hardened-public-POC, version={EXPECTED_APP_VERSION}, port={EXPECTED_PORT}, "
+    f"decision-checkpoint={EXPECTED_POC_DECISION_DATE}, host-safe BGPStream filters, "
     f"loopback-safe Compose bind, pinned CAIDA BGPStream 2.3.0 base, "
     f"Apache-2.0 licensing gate, 4 CI jobs, {len(runtime_requirements)} runtime dependencies "
     f"plus pinned dev tooling, {len(svgs)} SVG/PNG pairs"
