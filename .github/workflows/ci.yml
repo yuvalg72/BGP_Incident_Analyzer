@@ -39,6 +39,8 @@ jobs:
         run: npm run check:js
       - name: Validate repository structure and policy
         run: python scripts/validate_repository.py
+      - name: Validate licensing and third-party notices
+        run: python scripts/validate_licenses.py
       - name: Verify PNG renders match SVG sources
         run: |
           mkdir -p /tmp/bgp-diagrams
@@ -70,6 +72,14 @@ jobs:
         run: docker build --pull -t bgp-incident-analyzer-ci .
       - name: Verify non-root runtime user
         run: test "$(docker run --rm --entrypoint id bgp-incident-analyzer-ci -u)" = "10001"
+      - name: Verify licensing materials are embedded
+        run: |
+          docker run --rm --entrypoint sh bgp-incident-analyzer-ci -c '
+            test -f /usr/share/licenses/bgp-incident-analyzer/LICENSE &&
+            test -f /usr/share/licenses/bgp-incident-analyzer/NOTICE &&
+            test -f /usr/share/licenses/bgp-incident-analyzer/THIRD_PARTY_NOTICES.md &&
+            test -f /usr/share/licenses/bgp-incident-analyzer/LICENSES/CAIDA-BGPStream-BSD-2-Clause.txt
+          '
       - name: Start container
         run: docker run -d --name bgp-ci -p 127.0.0.1:17991:17991 bgp-incident-analyzer-ci
       - name: Smoke test readiness, liveness, docs and security headers

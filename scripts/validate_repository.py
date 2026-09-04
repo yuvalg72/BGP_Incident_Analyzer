@@ -16,6 +16,10 @@ REQUIRED = [
     "SECURITY.md",
     "CHANGELOG.md",
     "CONTRIBUTING.md",
+    "LICENSE",
+    "NOTICE",
+    "THIRD_PARTY_NOTICES.md",
+    "LICENSES/CAIDA-BGPStream-BSD-2-Clause.txt",
     ".gitignore",
     ".gitattributes",
     ".editorconfig",
@@ -36,6 +40,8 @@ REQUIRED = [
     "tests/test_app.py",
     "tests/test_analyzer.py",
     "docs/architecture.md",
+    "docs/licensing.md",
+    "scripts/validate_licenses.py",
 ]
 
 
@@ -82,9 +88,11 @@ for marker in [
     "--uid 10001 appuser",
     "/api/ready",
     "--no-server-header",
+    'org.opencontainers.image.licenses="Apache-2.0"',
+    "COPY LICENSE NOTICE THIRD_PARTY_NOTICES.md /usr/share/licenses/bgp-incident-analyzer/",
 ]:
     if marker not in dockerfile:
-        fail(f"Dockerfile hardening marker missing: {marker}")
+        fail(f"Dockerfile hardening/licensing marker missing: {marker}")
 
 compose = read("docker-compose.yml")
 expected_mapping = (
@@ -138,6 +146,7 @@ for marker in [
     "timeout-minutes:",
     "/api/ready",
     "x-content-type-options: nosniff",
+    "python scripts/validate_licenses.py",
 ]:
     if marker not in workflow:
         fail(f"CI control is missing: {marker}")
@@ -208,5 +217,6 @@ for svg in svgs:
 print(
     "Repository validation passed: "
     f"port={EXPECTED_PORT}, loopback-safe Compose bind, pinned CAIDA BGPStream 2.3.0 base, "
-    f"4 CI jobs, {len(runtime_requirements)} runtime dependencies plus pinned dev tooling, {len(svgs)} SVG/PNG pairs"
+    f"Apache-2.0 licensing gate, 4 CI jobs, {len(runtime_requirements)} runtime dependencies "
+    f"plus pinned dev tooling, {len(svgs)} SVG/PNG pairs"
 )

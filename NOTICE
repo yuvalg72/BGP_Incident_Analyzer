@@ -1,0 +1,9 @@
+BGP Incident Analyzer
+
+This distribution includes and builds upon CAIDA BGPStream software and container
+artifacts. BGPStream is copyright (C) 2014 The Regents of the University of
+California and is distributed under the BSD 2-Clause License, except where
+individual upstream components state otherwise.
+
+See THIRD_PARTY_NOTICES.md and LICENSES/CAIDA-BGPStream-BSD-2-Clause.txt for
+attribution, component scope, and third-party licensing information.

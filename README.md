@@ -125,6 +125,7 @@ pytest -q
 python -m compileall -q app tests scripts
 node --check app/static/app.js
 python scripts/validate_repository.py
+python scripts/validate_licenses.py
 ```
 
 Optional local checks matching CI:
@@ -152,9 +153,9 @@ The primary GitHub Actions workflow runs on pull requests, pushes to `main`, and
 
 The workflow is split into four focused validation jobs:
 
-- **Quality:** Python compilation, Ruff linting, JavaScript syntax, repository policy validation, and deterministic SVG-to-PNG comparison.
+- **Quality:** Python compilation, Ruff linting, JavaScript syntax, repository policy validation, Apache-2.0 and third-party licensing validation, and deterministic SVG-to-PNG comparison.
 - **Tests:** FastAPI and analyzer tests covering strict API validation, BGPReader parsing, state/RIB rejection, event-limit handling, timeout cleanup, severity classification, and timeline aggregation.
-- **Container:** Compose validation, Docker build, non-root UID verification, live BGPStream readiness, liveness, API documentation and security-header smoke checks on port `17991`.
+- **Container:** Compose validation, Docker build, non-root UID verification, embedded licensing-material verification, live BGPStream readiness, liveness, API documentation and security-header smoke checks on port `17991`.
 - **Security:** dependency vulnerability auditing with `pip-audit` against the exactly pinned runtime and development Python requirements.
 
 CI validates the source and deployable container. Publishing a release or container image remains an explicit release action rather than an automatic side effect of every merge.
@@ -167,4 +168,8 @@ Dependency updates are managed through Dependabot for both Python and npm ecosys
 
 ## License
 
-No open-source license is currently granted. Public visibility does not grant permission to copy, modify, or redistribute the code. Selecting an explicit license is required before presenting the repository as open source or encouraging external redistribution.
+BGP Incident Analyzer's first-party source code and documentation are licensed under the **Apache License 2.0**. See [LICENSE](LICENSE) for the complete license terms.
+
+Third-party software is not relicensed under Apache-2.0. Attribution and direct dependency licensing information are documented in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), with the CAIDA BGPStream BSD notice retained at [LICENSES/CAIDA-BGPStream-BSD-2-Clause.txt](LICENSES/CAIDA-BGPStream-BSD-2-Clause.txt). The repository also includes [NOTICE](NOTICE) so required attribution remains visible in redistributions.
+
+The Dockerfile copies the repository's licensing materials into `/usr/share/licenses/bgp-incident-analyzer/` in the built image. See [docs/licensing.md](docs/licensing.md) for contribution terms, third-party boundaries, and the additional license-audit gate required before publishing pre-built binary or container artifacts.

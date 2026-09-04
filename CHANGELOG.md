@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Licensed the project's first-party source code and documentation under Apache License 2.0, with the canonical license text in `LICENSE`, repository `NOTICE`, third-party attribution in `THIRD_PARTY_NOTICES.md`, and a retained CAIDA BGPStream BSD license copy under `LICENSES/`.
+- Added machine-readable Apache-2.0 metadata to the Node package and OCI container image, copied licensing materials into the built container, documented contribution and binary-distribution licensing boundaries, and added deterministic license validation to CI.
 - Changed the default application port from 8080 to 17991, with a configurable host-side Compose port.
 - Hardened the container to run as unprivileged UID 10001 and rebased it on CAIDA's official BGPStream 2.3.0 image with a pinned manifest digest.
 - Made Docker Compose bind to `127.0.0.1` by default, added init-based subprocess reaping, dropped Linux capabilities, preserved `no-new-privileges`, and kept the filesystem read-only except for `/tmp`.
@@ -22,7 +24,7 @@ All notable changes to this project will be documented in this file.
 - Added Ruff linting and `pip-audit` dependency vulnerability checks.
 - Expanded API and analyzer tests to cover strict validation, BGPReader parsing, state/RIB rejection, event limits, timeout cleanup, severity classification and timeline aggregation.
 - Extended deterministic repository validation to enforce port consistency, CI controls, dependency pinning, pinned CAIDA base image, loopback exposure, readiness checks, container hardening and static UI metadata.
-- Added a pull request template with validation, security, risk, and rollback gates.
+- Added a pull request template with validation, security, risk, rollback, and licensing gates.
 
 ## [0.1.0] - 2026-09-01
 
