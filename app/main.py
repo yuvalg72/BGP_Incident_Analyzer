@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from .analyzer import DEMO_EVENTS, collect_live, resolve_resource, summarize
 
 BASE = Path(__file__).resolve().parent
-APP_VERSION = "1.0.0"
+APP_VERSION = "0.2.0"
 app = FastAPI(
     title="BGP Incident Analyzer",
     version=APP_VERSION,

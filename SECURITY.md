@@ -2,7 +2,9 @@
 
 ## Supported status
 
-The 1.x line is a self-hosted operational application. The default Docker Compose configuration binds to `127.0.0.1` and is designed to be placed behind normal management-plane controls.
+The `0.x` line is a maintained self-hosted proof of concept (POC) intended for controlled evaluation, testing and technical experimentation. The repository includes deployment hardening and security validation, but it is not presented as a production-ready managed product or supported service.
+
+The default Docker Compose configuration binds to `127.0.0.1` and is designed to be placed behind normal management-plane controls.
 
 The application does not include built-in user authentication. Do not expose its application port directly to an untrusted network. Internet-facing deployment requires an authenticated reverse proxy, TLS, request rate limiting and host/network firewall restrictions.
 
@@ -14,6 +16,7 @@ Include the affected version, reproduction steps, impact, and any suggested miti
 
 ## Deployment boundary
 
+- Treat every `0.x` build as a POC candidate that requires validation in the intended environment before use.
 - Keep the default loopback bind unless a specific management interface is required.
 - Restrict outbound access to the data sources required for BGP analysis.
 - Treat `GET /api/health` as liveness and `GET /api/ready` as live-analysis readiness.

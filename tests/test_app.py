@@ -16,7 +16,7 @@ DEMO_REQUEST = {
 def test_health():
     response = client.get("/api/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "version": "1.0.0"}
+    assert response.json() == {"status": "ok", "version": "0.2.0"}
     assert response.headers["cache-control"] == "no-store"
 
 
@@ -33,7 +33,7 @@ def test_ready_reports_bgpreader(monkeypatch):
     assert response.status_code == 200
     assert response.json() == {
         "status": "ready",
-        "version": "1.0.0",
+        "version": "0.2.0",
         "bgpreader": True,
     }
 

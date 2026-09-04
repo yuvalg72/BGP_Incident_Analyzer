@@ -7,6 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 IMAGES = ROOT / "docs" / "images"
 EXPECTED_PORT = "17991"
+EXPECTED_APP_VERSION = "0.2.0"
 EXPECTED_BGPSTREAM_BASE = (
     "FROM caida/bgpstream:2.3.0@sha256:"
     "d808116911c107926451f882295d85c80940285791ff38c7e6999976d355e3d4"
@@ -73,6 +74,28 @@ for heading in [
     if heading.lower() not in readme.lower():
         fail(f"README does not document: {heading}")
 
+for marker in [
+    "proof of concept",
+    "the project remains in the `0.x` lifecycle",
+    "not presented as a production-ready managed product",
+]:
+    if marker not in readme.lower():
+        fail(f"README POC lifecycle marker missing: {marker}")
+
+security = read("SECURITY.md")
+for marker in [
+    "proof of concept",
+    "`0.x` line",
+    "not presented as a production-ready managed product",
+]:
+    if marker not in security.lower():
+        fail(f"SECURITY.md POC lifecycle marker missing: {marker}")
+
+for path in ["README.md", "SECURITY.md", "app/main.py", "tests/test_app.py"]:
+    content = read(path)
+    if "1.0.0" in content or "1.x" in content:
+        fail(f"production-style 1.x version marker remains in {path}")
+
 for path in ["README.md", "Dockerfile", "docker-compose.yml", ".github/workflows/ci.yml"]:
     content = read(path)
     if "8080" in content:
@@ -115,6 +138,7 @@ for marker in [
 
 main = read("app/main.py")
 for marker in [
+    f'APP_VERSION = "{EXPECTED_APP_VERSION}"',
     'ConfigDict(extra="forbid")',
     'Field(\n        default_factory=lambda: ["ris", "routeviews"]',
     '"/api/ready"',
@@ -123,7 +147,16 @@ for marker in [
     'mode: Literal["auto", "live", "demo"] = "live"',
 ]:
     if marker not in main:
-        fail(f"application safety marker missing: {marker}")
+        fail(f"application safety/version marker missing: {marker}")
+
+tests = read("tests/test_app.py")
+if f'"version": "{EXPECTED_APP_VERSION}"' not in tests:
+    fail("API tests do not assert the expected POC application version")
+
+changelog = read("CHANGELOG.md")
+for marker in ["proof of concept", f"`{EXPECTED_APP_VERSION}`"]:
+    if marker not in changelog.lower():
+        fail(f"CHANGELOG POC/version marker missing: {marker}")
 
 analyzer = read("app/analyzer.py")
 for marker in [
@@ -216,7 +249,8 @@ for svg in svgs:
 
 print(
     "Repository validation passed: "
-    f"port={EXPECTED_PORT}, loopback-safe Compose bind, pinned CAIDA BGPStream 2.3.0 base, "
+    f"status=hardened-public-POC, version={EXPECTED_APP_VERSION}, port={EXPECTED_PORT}, "
+    f"loopback-safe Compose bind, pinned CAIDA BGPStream 2.3.0 base, "
     f"Apache-2.0 licensing gate, 4 CI jobs, {len(runtime_requirements)} runtime dependencies "
     f"plus pinned dev tooling, {len(svgs)} SVG/PNG pairs"
 )

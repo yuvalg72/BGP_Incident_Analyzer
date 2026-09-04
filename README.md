@@ -1,14 +1,14 @@
 # BGP Incident Analyzer
 
-A self-hosted web application for network and security teams investigating BGP announcements, withdrawals, origin changes and AS-path visibility using CAIDA BGPStream data from RIPE RIS and Route Views.
+A hardened, self-hosted proof of concept (POC) for network and security teams investigating BGP announcements, withdrawals, origin changes and AS-path visibility using CAIDA BGPStream data from RIPE RIS and Route Views.
 
-> **Project status:** Maintained self-hosted application. The 1.x line is intended for controlled self-hosting. Docker Compose binds to loopback by default. Internet-facing deployment requires an authenticated reverse proxy, TLS, request rate limiting and normal host firewall controls.
+> **Project status:** Maintained public proof of concept. The project remains in the `0.x` lifecycle and is intended for controlled evaluation, self-hosted testing and technical experimentation. It is not presented as a production-ready managed product or supported service. Docker Compose binds to loopback by default. Internet-facing deployment requires an authenticated reverse proxy, TLS, request rate limiting and normal host firewall controls.
 
 ## Objective and success criteria
 
-The service turns public BGP observations into a concise, repeatable incident record without requiring analysts to manually download and parse collector files.
+The POC demonstrates how public BGP observations can be turned into a concise, repeatable incident record without requiring analysts to manually download and parse collector files.
 
-A release is considered operationally ready when an operator can:
+A POC release is considered test-ready when an operator can:
 
 - submit a valid IPv4/IPv6 address or prefix and a bounded timezone-aware incident window;
 - obtain matching announcements, withdrawals, origin ASNs and AS paths from CAIDA BGPStream;
@@ -106,6 +106,7 @@ Health endpoints:
 
 ## Operational boundaries
 
+- This repository is a POC. Hardening, CI coverage and reproducible deployment do not make it a production-ready managed product or a substitute for independent operational validation.
 - BGPStream provides public control-plane observations, not packet-path proof.
 - A missing update is not proof of uninterrupted reachability.
 - Correlate findings with MTR, traceroute, packet captures, FortiGate logs, provider telemetry and ticket timestamps.
@@ -115,6 +116,7 @@ Health endpoints:
 - The container runs as unprivileged UID `10001`, drops Linux capabilities, enables `no-new-privileges`, uses an init process for subprocess reaping, and is read-only except for the Compose `/tmp` tmpfs.
 - Responses include restrictive browser security headers, including CSP, frame blocking, no-sniff and no-referrer policies.
 - The BGPStream base image is pinned by digest. Updating that digest is an explicit dependency-maintenance change and should be validated by the container CI gate.
+- `0.x` releases may change interfaces or behavior as the POC evolves. Review the changelog and validate the exact commit before relying on a new revision.
 
 ## Validation
 
@@ -138,7 +140,7 @@ docker compose config -q
 docker build -t bgp-incident-analyzer .
 ```
 
-For deployment validation, confirm that `docker compose up -d --build` completes, `GET /api/health` returns `{"status":"ok","version":"1.0.0"}`, and `GET /api/ready` returns `{"status":"ready","version":"1.0.0","bgpreader":true}`.
+For deployment validation, confirm that `docker compose up -d --build` completes, `GET /api/health` returns `{"status":"ok","version":"0.2.0"}`, and `GET /api/ready` returns `{"status":"ready","version":"0.2.0","bgpreader":true}`.
 
 SVG files in `docs/images/` are the editable sources. PNG files are generated from them for consistent GitHub rendering:
 
@@ -158,11 +160,11 @@ The workflow is split into four focused validation jobs:
 - **Container:** Compose validation, Docker build, non-root UID verification, embedded licensing-material verification, live BGPStream readiness, liveness, API documentation and security-header smoke checks on port `17991`.
 - **Security:** dependency vulnerability auditing with `pip-audit` against the exactly pinned runtime and development Python requirements.
 
-CI validates the source and deployable container. Publishing a release or container image remains an explicit release action rather than an automatic side effect of every merge.
+CI validates the source and the self-hosted POC container candidate. Publishing a tagged POC release or pre-built container image remains an explicit release action rather than an automatic side effect of every merge.
 
 ## Maintenance
 
-This project is maintained as a self-hosted operational tool. Use GitHub Issues for reproducible defects and bounded enhancement proposals. Report suspected security vulnerabilities using the private process in [SECURITY.md](SECURITY.md).
+This project is maintained as a public, self-hosted proof of concept. The `0.x` lifecycle is intentionally pre-1.0 and may evolve as the design is validated. There is no production support or SLA implied by the repository. Use GitHub Issues for reproducible defects and bounded enhancement proposals. Report suspected security vulnerabilities using the private process in [SECURITY.md](SECURITY.md).
 
 Dependency updates are managed through Dependabot for both Python and npm ecosystems. Material changes should use a branch and pull request and must preserve the distinction between live evidence and demonstration data.
 

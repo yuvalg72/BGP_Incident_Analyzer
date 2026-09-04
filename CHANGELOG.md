@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Aligned the release candidate with the project's intended lifecycle as a hardened public proof of concept and set the application/API version to `0.2.0` instead of presenting the project as a production-style `1.x` release.
 - Licensed the project's first-party source code and documentation under Apache License 2.0, with the canonical license text in `LICENSE`, repository `NOTICE`, third-party attribution in `THIRD_PARTY_NOTICES.md`, and a retained CAIDA BGPStream BSD license copy under `LICENSES/`.
 - Added machine-readable Apache-2.0 metadata to the Node package and OCI container image, copied licensing materials into the built container, documented contribution and binary-distribution licensing boundaries, and added deterministic license validation to CI.
 - Changed the default application port from 8080 to 17991, with a configurable host-side Compose port.
@@ -23,7 +24,7 @@ All notable changes to this project will be documented in this file.
 - Added Docker build, non-root runtime, BGPStream readiness, liveness, API documentation and security-header smoke tests.
 - Added Ruff linting and `pip-audit` dependency vulnerability checks.
 - Expanded API and analyzer tests to cover strict validation, BGPReader parsing, state/RIB rejection, event limits, timeout cleanup, severity classification and timeline aggregation.
-- Extended deterministic repository validation to enforce port consistency, CI controls, dependency pinning, pinned CAIDA base image, loopback exposure, readiness checks, container hardening and static UI metadata.
+- Extended deterministic repository validation to enforce port consistency, CI controls, dependency pinning, pinned CAIDA base image, loopback exposure, readiness checks, container hardening, POC lifecycle/version consistency and static UI metadata.
 - Added a pull request template with validation, security, risk, rollback, and licensing gates.
 
 ## [0.1.0] - 2026-09-01
