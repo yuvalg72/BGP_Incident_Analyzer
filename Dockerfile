@@ -14,5 +14,5 @@ COPY --chown=appuser:appuser app ./app
 ENV PATH="/opt/venv/bin:$PATH"
 USER appuser
 EXPOSE 17991
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD curl -fsS http://127.0.0.1:17991/api/health || exit 1
-CMD ["uvicorn","app.main:app","--host","0.0.0.0","--port","17991","--proxy-headers"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 CMD curl -fsS http://127.0.0.1:17991/api/ready || exit 1
+CMD ["uvicorn","app.main:app","--host","0.0.0.0","--port","17991","--proxy-headers","--no-server-header"]

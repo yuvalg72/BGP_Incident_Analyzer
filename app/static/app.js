@@ -1,6 +1,18 @@
 const $ = (id) => document.getElementById(id);
 let currentResult = null;
 
+async function refreshReadiness() {
+  const status = $("source-state-text");
+  if (!status) return;
+  try {
+    const response = await fetch("/api/ready", {cache: "no-store"});
+    status.textContent = response.ok ? "CAIDA BGPStream ready" : "Live BGPStream unavailable";
+  } catch (_) {
+    status.textContent = "Live BGPStream unavailable";
+  }
+}
+refreshReadiness();
+
 function isoLocal(date) {
   const p = (n) => String(n).padStart(2, "0");
   return `${date.getUTCFullYear()}-${p(date.getUTCMonth()+1)}-${p(date.getUTCDate())}T${p(date.getUTCHours())}:${p(date.getUTCMinutes())}`;
