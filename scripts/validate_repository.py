@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import struct
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -216,6 +215,8 @@ for marker in [
     "/api/ready",
     "x-content-type-options: nosniff",
     "python scripts/validate_licenses.py",
+    "Render SVG documentation assets",
+    "node scripts/render-diagrams.js /tmp/bgp-diagrams",
 ]:
     if marker not in workflow:
         fail(f"CI control is missing: {marker}")
@@ -277,6 +278,13 @@ svgs = sorted(IMAGES.glob("*.svg"))
 if not svgs:
     fail("no SVG diagrams found")
 
+pngs = sorted(IMAGES.glob("*.png"))
+if pngs:
+    fail(
+        "committed PNG diagram renders are not allowed; keep SVG files authoritative and render PNGs ephemerally: "
+        + ", ".join(png.name for png in pngs)
+    )
+
 for svg in svgs:
     try:
         root = ET.parse(svg).getroot()
@@ -284,17 +292,8 @@ for svg in svgs:
         fail(f"invalid SVG {svg.name}: {exc}")
     if not root.findall("{http://www.w3.org/2000/svg}title"):
         fail(f"SVG lacks accessible title: {svg.name}")
-    png = svg.with_suffix(".png")
-    if not png.is_file():
-        fail(f"missing PNG render for {svg.name}")
-    data = png.read_bytes()[:24]
-    if len(data) != 24 or data[:8] != b"\x89PNG\r\n\x1a\n":
-        fail(f"invalid PNG signature: {png.name}")
-    width, height = struct.unpack(">II", data[16:24])
-    if width < 1000 or height < 500:
-        fail(f"PNG render is unexpectedly small: {png.name} ({width}x{height})")
-    if f"docs/images/{png.name}" not in readme:
-        fail(f"README does not display {png.name}")
+    if f"docs/images/{svg.name}" not in readme:
+        fail(f"README does not display canonical SVG diagram: {svg.name}")
 
 print(
     "Repository validation passed: "
@@ -302,5 +301,5 @@ print(
     f"decision-checkpoint={EXPECTED_POC_DECISION_DATE}, host-safe BGPStream filters, "
     f"loopback-safe Compose bind, pinned CAIDA BGPStream 2.3.0 base, "
     f"Apache-2.0 licensing gate, 4 CI jobs, {len(runtime_requirements)} runtime dependencies "
-    f"plus pinned dev tooling, {len(svgs)} SVG/PNG pairs"
+    f"plus pinned dev tooling, {len(svgs)} canonical SVG diagrams"
 )
