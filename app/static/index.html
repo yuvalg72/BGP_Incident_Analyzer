@@ -11,7 +11,7 @@
   <a class="skip-link" href="#main">Skip to analysis</a>
   <header class="topbar">
     <div class="brand"><span class="brand-mark" aria-hidden="true">B</span><div><strong>BGP Incident Analyzer</strong><span>Routing evidence workspace</span></div></div>
-    <div class="source-state" aria-live="polite"><span class="pulse" aria-hidden="true"></span><span id="source-state-text">Checking CAIDA BGPStream</span></div>
+    <div class="source-state" aria-live="polite"><span class="pulse" aria-hidden="true"></span><span id="source-state-text">Checking BGPReader runtime</span></div>
   </header>
 
   <main id="main">
@@ -72,10 +72,10 @@
         <article class="panel path-panel"><div class="panel-head"><div><span class="panel-kicker">PATH VISIBILITY</span><h3>Most observed AS paths</h3></div></div><ol id="path-list" class="path-list"></ol></article>
       </div>
 
-      <article class="panel event-panel"><div class="panel-head"><div><span class="panel-kicker">RAW EVIDENCE</span><h3>Event log</h3></div><label class="filter">Filter <select id="event-filter"><option value="all">All events</option><option value="A">Announcements</option><option value="W">Withdrawals</option></select></label></div><div class="table-wrap"><table><thead><tr><th>Time (UTC)</th><th>Event</th><th>Collector</th><th>Peer ASN</th><th>Origin</th><th>AS path</th></tr></thead><tbody id="event-body"></tbody></table></div><p id="empty-events" class="empty" hidden>No events match this filter.</p></article>
+      <article class="panel event-panel"><div class="panel-head"><div><span class="panel-kicker">RAW EVIDENCE</span><h3>Event log</h3></div><label class="filter">Filter <select id="event-filter"><option value="all">All events</option><option value="A">Announcements</option><option value="W">Withdrawals</option></select></label></div><div class="table-wrap"><table><thead><tr><th>Time (UTC)</th><th>Event</th><th>Collector</th><th>Peer ASN</th><th>Origin</th><th>AS path</th></tr></thead><tbody id="event-body"></tbody></table></div><p id="empty-events" class="empty" hidden>No events match this filter.</p><p id="event-count-note" class="empty" aria-live="polite"></p></article>
     </section>
   </main>
-  <footer><span>BGP Incident Analyzer v1.0</span><span>Control-plane evidence only. Correlate with MTR, packet capture and provider telemetry.</span></footer>
+  <footer><span>BGP Incident Analyzer v0.2.0</span><span>Control-plane evidence only. Correlate with MTR, packet capture and provider telemetry.</span></footer>
   <script src="/static/app.js" defer></script>
 </body>
 </html>

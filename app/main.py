@@ -1,14 +1,22 @@
 from datetime import datetime, timezone
 from pathlib import Path
 import shutil
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from .analyzer import DEMO_EVENTS, collect_live, resolve_resource, summarize
+from .analyzer import (
+    DEMO_EVENTS,
+    DEMO_PREFIX,
+    ResourceTarget,
+    collect_live,
+    parse_resource,
+    resolve_resource,
+    summarize,
+)
 
 BASE = Path(__file__).resolve().parent
 APP_VERSION = "0.2.0"
@@ -72,6 +80,20 @@ class AnalysisRequest(BaseModel):
         return self
 
 
+def _attach_query_context(
+    result: dict[str, Any],
+    target: ResourceTarget,
+    *,
+    live_filter_used: bool,
+) -> dict[str, Any]:
+    result["query"] = {
+        "requested_resource": target.requested_resource,
+        "resolved_prefix": target.display_prefix,
+        "bgp_filter": target.bgp_filter if live_filter_used else None,
+    }
+    return result
+
+
 @app.get("/", include_in_schema=False)
 async def index():
     return FileResponse(BASE / "static" / "index.html")
@@ -92,29 +114,53 @@ async def ready():
 @app.post("/api/analyze")
 async def analyze(payload: AnalysisRequest):
     try:
-        prefix, resolution = await resolve_resource(payload.resource)
+        parsed_target = parse_resource(payload.resource)
         if payload.mode == "demo":
-            return summarize(
-                prefix,
-                DEMO_EVENTS,
-                "demo",
-                f"Demonstration dataset; {resolution}",
+            return _attach_query_context(
+                summarize(
+                    DEMO_PREFIX,
+                    DEMO_EVENTS,
+                    "demo",
+                    (
+                        f"Demonstration dataset for {DEMO_PREFIX}; requested resource "
+                        f"was {parsed_target.requested_resource}; no live BGP query was run"
+                    ),
+                ),
+                parsed_target,
+                live_filter_used=False,
             )
+
+        target = await resolve_resource(payload.resource)
         try:
             events = await collect_live(
-                prefix, payload.start, payload.end, payload.projects
+                target.bgp_filter, payload.start, payload.end, payload.projects
             )
-            return summarize(
-                prefix, events, "live", f"CAIDA BGPStream; {resolution}"
+            return _attach_query_context(
+                summarize(
+                    target.display_prefix,
+                    events,
+                    "live",
+                    f"CAIDA BGPStream; {target.resolution}",
+                ),
+                target,
+                live_filter_used=True,
             )
         except RuntimeError as exc:
             if payload.mode == "live":
                 raise HTTPException(status_code=503, detail=str(exc)) from exc
-            return summarize(
-                prefix,
-                DEMO_EVENTS,
-                "demo",
-                f"Live source unavailable ({exc}); demonstration dataset shown",
+            return _attach_query_context(
+                summarize(
+                    DEMO_PREFIX,
+                    DEMO_EVENTS,
+                    "demo",
+                    (
+                        f"Live source unavailable ({exc}); demonstration dataset for "
+                        f"{DEMO_PREFIX} shown instead of live results for "
+                        f"{target.requested_resource}"
+                    ),
+                ),
+                target,
+                live_filter_used=False,
             )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

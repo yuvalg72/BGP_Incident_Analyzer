@@ -1,4 +1,5 @@
 const $ = (id) => document.getElementById(id);
+const EVENT_TABLE_LIMIT = 500;
 let currentResult = null;
 
 async function refreshReadiness() {
@@ -6,9 +7,9 @@ async function refreshReadiness() {
   if (!status) return;
   try {
     const response = await fetch("/api/ready", {cache: "no-store"});
-    status.textContent = response.ok ? "CAIDA BGPStream ready" : "Live BGPStream unavailable";
+    status.textContent = response.ok ? "BGPReader runtime ready" : "Live analysis runtime unavailable";
   } catch (_) {
-    status.textContent = "Live BGPStream unavailable";
+    status.textContent = "Live analysis runtime unavailable";
   }
 }
 refreshReadiness();
@@ -68,11 +69,17 @@ function renderPaths(paths) {
 function renderEvents(events, filter="all") {
   const body=$("event-body");body.replaceChildren();
   const rows=events.filter(e=>filter==="all"||e.type===filter);$("empty-events").hidden=rows.length>0;
-  rows.slice(0,500).forEach(e=>{
+  const visibleRows=rows.slice(0,EVENT_TABLE_LIMIT);
+  visibleRows.forEach(e=>{
     const tr=document.createElement("tr");
     const values=[e.timestamp.replace("T"," ").replace("Z",""),e.type,e.collector,`AS${e.peer_asn}`,e.origin_asn?`AS${e.origin_asn}`:"-",e.as_path||"-"];
     values.forEach((v,i)=>{const td=document.createElement("td");if(i===1){const s=document.createElement("span");s.className=`event-pill ${e.type.toLowerCase()}`;s.textContent=e.type==="A"?"ANNOUNCE":"WITHDRAW";td.append(s);}else if(i===5){const c=document.createElement("code");c.textContent=v;td.append(c);}else td.textContent=v;tr.append(td);});body.append(tr);
   });
+  const note=$("event-count-note");
+  if(note){
+    if(rows.length>EVENT_TABLE_LIMIT){note.textContent=`Showing ${EVENT_TABLE_LIMIT.toLocaleString()} of ${rows.length.toLocaleString()} matching events. Export JSON includes all collected events.`;}
+    else{note.textContent=`Showing ${rows.length.toLocaleString()} matching event${rows.length===1?"":"s"}.`}
+  }
 }
 
 function render(data){
