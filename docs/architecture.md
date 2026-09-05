@@ -4,9 +4,7 @@
 
 BGP Incident Analyzer is a read-only analysis service. It queries public BGP control-plane observations and does not connect to routers, FortiGate devices, customer environments, or routing sessions.
 
-![BGP Incident Analyzer architecture](images/architecture.png)
-
-[Open the scalable SVG version](images/architecture.svg)
+![BGP Incident Analyzer architecture](images/architecture.svg)
 
 ## Components
 
@@ -31,9 +29,7 @@ This avoids treating a bare address as an exact `/32` or `/128` BGP route, while
 
 ## Analysis workflow
 
-![BGP incident analysis workflow](images/analysis-flow.png)
-
-[Open the scalable SVG version](images/analysis-flow.svg)
+![BGP incident analysis workflow](images/analysis-flow.svg)
 
 ## Runtime and failure boundaries
 
