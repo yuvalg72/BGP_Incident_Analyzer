@@ -26,17 +26,17 @@ The maintainer decision checkpoint is **31/10/2026**. By that date, the project 
 
 ## Architecture
 
-![BGP Incident Analyzer architecture](docs/images/architecture.png)
+![BGP Incident Analyzer architecture](docs/images/architecture.svg)
 
-The service validates a resource, queries CAIDA BGPStream, summarizes the returned control-plane events, and presents the evidence in a browser workspace. For a bare IP address, RIPEstat is used only to enrich the displayed current covering prefix; the BGP query itself uses a host-targeted `prefix any` filter so it still finds covering routes if RIPEstat is unavailable. For an explicit CIDR, the query uses `prefix more` so exact and more-specific updates remain visible. See the [architecture and security boundaries](docs/architecture.md) or open the [scalable SVG diagram](docs/images/architecture.svg).
+The service validates a resource, queries CAIDA BGPStream, summarizes the returned control-plane events, and presents the evidence in a browser workspace. For a bare IP address, RIPEstat is used only to enrich the displayed current covering prefix; the BGP query itself uses a host-targeted `prefix any` filter so it still finds covering routes if RIPEstat is unavailable. For an explicit CIDR, the query uses `prefix more` so exact and more-specific updates remain visible. See the [architecture and security boundaries](docs/architecture.md).
 
 The application image is layered on CAIDA's official BGPStream 2.3.0 container image. The Dockerfile pins its manifest digest rather than relying on a floating `latest` tag.
 
 ## Analysis workflow
 
-![BGP incident analysis workflow](docs/images/analysis-flow.png)
+![BGP incident analysis workflow](docs/images/analysis-flow.svg)
 
-The workflow keeps the incident window in UTC and preserves a visible distinction between live and demonstration data. The demonstration dataset always uses the documentation prefix `192.0.2.0/24` and is never labeled as if it were live evidence for the operator's requested resource. Open the [scalable SVG workflow](docs/images/analysis-flow.svg).
+The workflow keeps the incident window in UTC and preserves a visible distinction between live and demonstration data. The demonstration dataset always uses the documentation prefix `192.0.2.0/24` and is never labeled as if it were live evidence for the operator's requested resource.
 
 ## Quick start
 
@@ -152,7 +152,7 @@ docker build -t bgp-incident-analyzer .
 
 For deployment validation, confirm that `docker compose up -d --build` completes, `GET /api/health` returns `{"status":"ok","version":"0.2.0"}`, and `GET /api/ready` returns `{"status":"ready","version":"0.2.0","bgpreader":true}`.
 
-SVG files in `docs/images/` are the editable sources. PNG files are generated from them for consistent GitHub rendering:
+SVG files in `docs/images/` are the authoritative committed diagram sources. PNG renders are generated ephemerally to prove that the SVGs remain renderable and are not stored in Git:
 
 ```bash
 npm ci
@@ -165,7 +165,7 @@ The primary GitHub Actions workflow runs on pull requests, pushes to `main`, and
 
 The workflow is split into four focused validation jobs:
 
-- **Quality:** Python compilation, Ruff linting, JavaScript syntax, repository policy validation, Apache-2.0 and third-party licensing validation, and deterministic SVG-to-PNG comparison.
+- **Quality:** Python compilation, Ruff linting, JavaScript syntax, repository policy validation, Apache-2.0 and third-party licensing validation, and deterministic SVG renderability checks.
 - **Tests:** FastAPI and analyzer tests covering strict API validation, host/prefix filter semantics, RIPEstat fallback, demo isolation, BGPReader parsing, state/RIB rejection, event-limit handling, timeout cleanup, severity classification, and timeline aggregation.
 - **Container:** Compose validation, Docker build, non-root UID verification, embedded licensing-material verification, local BGPReader readiness, liveness, API documentation and security-header smoke checks on port `17991`.
 - **Security:** dependency vulnerability auditing with `pip-audit` against the exactly pinned runtime and development Python requirements.
